@@ -53,6 +53,7 @@ Examples
 
 Here are 3 lines taken from train.csv, following the line format:
 topic,evidence_1,evidence_2,label,acceptance_rate,evidence_1_stance,evidence_2_stance,evidence_1_id,evidence_2_id
+
 We should end affirmative action,"In February 2007, Sarkozy appeared on a televised debate on TF1 where he expressed his support for affirmative action and the freedom to work overtime.","Williams believes programs such as affirmative action and minimum wage laws set up to aide minorities have, in fact, been harmful to them and stifled their ability to advance in society.",2,1.00,CON,PRO,2469,2478
 We should subsidize condoms,"In 2009, Lewis strongly criticized Pope Benedict XVI's assertion that condom use only makes the AIDS crisis worse [REF].","Green said that according to the ""best studies,"" condoms makes people take wilder sexual risks, thus worsening the spread of the disease.",2,0.63,PRO,CON,1743,1750
 We should legalize prostitution,"The appellants' argument then, more precisely stated, is that in criminalizing so many activities surrounding the act itself, Parliament has made prostitution de facto illegal if not de jure illegal."",","Feminists who hold such views on prostitution include Kathleen Barry, Melissa Farley,[REF][REF] Julie Bindel,[REF][REF] Sheila Jeffreys, Catharine MacKinnon[REF] and Laura Lederer;[REF] the European Women's Lobby has also condemned prostitution as ""an intolerable form of male violence"" [REF].",1,0.71,CON,CON,1564,1608
