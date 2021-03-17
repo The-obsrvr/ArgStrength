@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="five@astranaar.dbs.ifi.lmu.de:22 password">
+    <serverData>
+      <paths name="five@astranaar.dbs.ifi.lmu.de:22">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="five@astranaar.dbs.ifi.lmu.de:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="five@astranaar.dbs.ifi.lmu.de:22 password (1)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/mnt/data2/Sid/arg_quality/generalization_gretz" local="$PROJECT_DIR$/../task_generalization_gretz" />
+            <mapping local="" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>
