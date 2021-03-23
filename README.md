@@ -33,9 +33,9 @@ python task3_train.py --task train
 Task: Multi-Regression Learning Models
 ```
 cd task4
-python src/task4_run.py
+python src/task4_run.py 
 ```
-
+Default setting is for "equal" dataset weights. To change it to weighted, add the command line argument, `--dataset_loss_method weighted`
 
 
 
