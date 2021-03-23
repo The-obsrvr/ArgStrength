@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 import csv
 import random
 import argparse
+import mlflow
 
 
 class EarlyStopping:
@@ -205,9 +206,12 @@ def test(arg, device):
 
         pearson_corr = np.corrcoef(truth, prediction)
         spearman_corr, p = spearmanr(truth, prediction)
+
+        mlflow.log_metric("pearson corr", pearson_corr[0][1])
+        mlflow.log_metric("spearman corr", spearman_corr)
         list1 = [filename, arg.seed, pearson_corr[0][1], spearman_corr]
 
-        print(pearson_corr[0][1])
+        # print(pearson_corr[0][1])
         path_eval = os.path.join(arg.setup, "eval_results.csv")
         df = pd.DataFrame([list1])
         if not os.path.exists(path_eval):
@@ -254,7 +258,7 @@ def train(arg, device):
     avg_valid_losses = []
 
     # trange is a tqdm wrapper around the normal python range
-    for _ in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs)):
 
         # Training, Set our model to training mode (as opposed to evaluation mode)
         model.train()
@@ -294,6 +298,10 @@ def train(arg, device):
 
         train_loss = np.average(train_losses)
         valid_loss = np.average(valid_losses)
+
+        mlflow.log_metric("train_loss", train_loss, epoch)
+        mlflow.log_metric("validation_loss", valid_loss, epoch)
+
         avg_train_losses.append(train_loss)
         avg_valid_losses.append(valid_loss)
 
@@ -376,7 +384,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', default=42, type=float)
     parser.add_argument('--save_model', default=True, type=bool)
     parser.add_argument('--outdir_model', type=str)
-    parser.add_argument('--epochs', default=10, type=int)
+    parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--patience', default=5, type=int)
     parser.add_argument('--finetuned', default=False, type=lambda s: s.lower() in ['true', 't', 'yes', '1'])
     parser.add_argument('--prediction_file', type=str)
@@ -388,28 +396,31 @@ if __name__ == '__main__':
     print("Using Device:", device)
     print("GPUs:", n_gpu)
 
-    for seed in [1212]:
-        args.seed = seed
-        set_seed(args.seed)
+    mlflow.set_tracking_uri("http://mlflow.dbs.ifi.lmu.de:5000")
+    mlflow.set_experiment(experiment_name="Sid_task3_exp1")
+    with mlflow.start_run():
+        for seed in [1212]:
+            args.seed = seed
+            set_seed(args.seed)
 
-        for setup in ["all"]:
-            args.setup = setup
-            train_filename = "data/" + setup + "_train.txt"
-            dev_filename = "data/" + setup + "_dev.txt"
+            for setup in ["all"]:
+                args.setup = setup
+                train_filename = "data/" + setup + "_train.txt"
+                dev_filename = "data/" + setup + "_dev.txt"
 
-            args.traindata_file = os.path.join(setup, train_filename)
-            args.devdata_file = os.path.join(setup, dev_filename)
-            args.testdata_folder = "test"
-            args.outdir_model = os.path.join(setup, "model" + str(seed))
-            if not os.path.exists(args.outdir_model):
-                os.makedirs(args.outdir_model)
+                args.traindata_file = os.path.join(setup, train_filename)
+                args.devdata_file = os.path.join(setup, dev_filename)
+                args.testdata_folder = "test"
+                args.outdir_model = os.path.join(setup, "model" + str(seed))
+                if not os.path.exists(args.outdir_model):
+                    os.makedirs(args.outdir_model)
 
-            if args.task == 'train':
-                train(args, device)
-                test(args, device)
+                if args.task == 'train':
+                    train(args, device)
+                    test(args, device)
 
-            elif args.task == 'test':
-                test(args, device)
+                elif args.task == 'test':
+                    test(args, device)
 
-            else:
-                predict(args, device)
+                else:
+                    predict(args, device)
