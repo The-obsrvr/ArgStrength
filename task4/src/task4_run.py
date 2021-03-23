@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 # Local Imports
 from processors import StrengthProcessor, convert_features_to_dataset
@@ -22,6 +21,7 @@ from transformers import (get_linear_schedule_with_warmup, BertTokenizer, AdamW,
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
+import mlflow
 
 
 class EarlyStopping:
@@ -112,7 +112,6 @@ class Trainer:
         else:
             self.data_collator = DataCollator()
 
-
     def get_train_dataloader(self, batch_size: int) -> DataLoader:
         """
         Creates a Data loader containing the train dataset using a Weighted Data Sampler.
@@ -148,7 +147,7 @@ class Trainer:
         )
         return data_loader
 
-    def _validate_data(self, device: torch.device, validation_dataloader: DataLoader) -> float:
+    def _validate_data(self, device: torch.device, validation_dataloader: DataLoader) -> Tuple:
         """
         Validation step of training. Validates on all training datasets using the validation data only.
         :param device:
@@ -164,6 +163,10 @@ class Trainer:
         # Tracking variables
         total_eval_pearson = []
         total_eval_loss = 0
+        gretz_val_batch_weighted_losses = []
+        toledo_val_batch_weighted_losses = []
+        swanson_val_batch_weighted_losses = []
+        ukprank_val_batch_weighted_losses = []
         # Evaluate data for one epoch
         for batch in validation_dataloader:
 
@@ -174,6 +177,16 @@ class Trainer:
                 # Forward pass, calculate logit predictions.
                 bert_batch_output = self.model(batch)
             weighted_loss = bert_batch_output.calculate_weighted_loss(self.dataset_weights)
+
+            if batch.bert_single_dataset_inputs[0].data_set == "gretz.csv":
+                gretz_val_batch_weighted_losses.append(weighted_loss)
+            elif batch.bert_single_dataset_inputs[0].data_set == "toledo.csv":
+                toledo_val_batch_weighted_losses.append(weighted_loss)
+            elif batch.bert_single_dataset_inputs[0].data_set == "swanson.csv":
+                swanson_val_batch_weighted_losses.append(weighted_loss)
+            else:
+                ukprank_val_batch_weighted_losses.append(weighted_loss)
+
             # Accumulate the validation loss.
             total_eval_loss += weighted_loss.item()
             # Tracking metrics for each dataset that we use for logging to MlFlow
@@ -201,8 +214,13 @@ class Trainer:
 
         # Calculate the average loss over all of the batches.
         avg_val_loss = total_eval_loss / len(validation_dataloader)
+        # cal the avg loss over each dataset
+        avg_gretz_val_loss = sum(gretz_val_batch_weighted_losses) / len(gretz_val_batch_weighted_losses)
+        avg_toledo_val_loss = sum(toledo_val_batch_weighted_losses) / len(toledo_val_batch_weighted_losses)
+        avg_swanson_val_loss = sum(swanson_val_batch_weighted_losses) / len(swanson_val_batch_weighted_losses)
+        avg_ukprank_val_loss = sum(ukprank_val_batch_weighted_losses) / len(ukprank_val_batch_weighted_losses)
 
-        return avg_val_loss
+        return avg_val_loss, avg_gretz_val_loss, avg_toledo_val_loss, avg_swanson_val_loss, avg_ukprank_val_loss
 
     def train_data(self, device: torch.device, batch_size: int):
         """
@@ -246,7 +264,7 @@ class Trainer:
         early_stop = False
 
         # We loop epochs until a max, however early stopping should end training much sooner!
-        for _ in tqdm(range(self.args.max_num_train_epochs)):
+        for epoch in tqdm(range(self.args.max_num_train_epochs)):
 
             # do not start a new epoch if the early stop criterion is met
             if early_stop:
@@ -259,6 +277,10 @@ class Trainer:
 
             # Reset the total loss for this epoch.
             total_train_loss = 0
+            gretz_train_batch_weighted_losses = []
+            toledo_train_batch_weighted_losses = []
+            swanson_train_batch_weighted_losses = []
+            ukprank_train_batch_weighted_losses = []
 
             # Put the model into training mode.
             self.model.train()
@@ -274,9 +296,18 @@ class Trainer:
 
                 # Perform a forward pass (evaluate the model on this training batch).
                 bert_batch_output = self.model(batch)
+
                 # Calculate the weighted loss based on the result
                 weighted_loss = bert_batch_output.calculate_weighted_loss(self.dataset_weights)
-                # logger.debug("    Calculated weighted loss for batch: {}".format(weighted_loss))
+
+                if batch.bert_single_dataset_inputs[0].data_set == "gretz.csv":
+                    gretz_train_batch_weighted_losses.append(weighted_loss)
+                elif batch.bert_single_dataset_inputs[0].data_set == "toledo.csv":
+                    toledo_train_batch_weighted_losses.append(weighted_loss)
+                elif batch.bert_single_dataset_inputs[0].data_set == "swanson.csv":
+                    swanson_train_batch_weighted_losses.append(weighted_loss)
+                else:
+                    ukprank_train_batch_weighted_losses.append(weighted_loss)
 
                 # Accumulate the training loss over all of the batches so that we can
                 # calculate the average loss at the end.
@@ -298,7 +329,14 @@ class Trainer:
                 if step == len(train_dataloader):
 
                     # Calculate the average validation loss
-                    avg_val_loss = self._validate_data(device, validation_dataloader)
+                    avg_val_loss, avg_gretz_val_loss, avg_toledo_val_loss, avg_swanson_val_loss, avg_ukprank_val_loss =\
+                        self._validate_data(device, validation_dataloader)
+
+                    mlflow.log_metric("avg_gretz_val_loss", avg_gretz_val_loss.item(), epoch)
+                    mlflow.log_metric("avg_toledo_val_loss", avg_toledo_val_loss.item(), epoch)
+                    mlflow.log_metric("avg_swanson_val_loss", avg_swanson_val_loss.item(), epoch)
+                    mlflow.log_metric("avg_ukprank_val_loss", avg_ukprank_val_loss.item(), epoch)
+                    mlflow.log_metric("avg_val_loss", avg_val_loss, epoch)
 
                     # early_stopping needs the validation loss to check if it has decreased,
                     # and if it has, it will make a checkpoint of the current model
@@ -309,6 +347,17 @@ class Trainer:
                         # Break out of the current epoch
                         early_stop = True
                         break
+
+            avg_gretz_train_loss = sum(gretz_train_batch_weighted_losses) / len(gretz_train_batch_weighted_losses)
+            avg_toledo_train_loss = sum(toledo_train_batch_weighted_losses) / len(toledo_train_batch_weighted_losses)
+            avg_swanson_train_loss = sum(swanson_train_batch_weighted_losses) / len(swanson_train_batch_weighted_losses)
+            avg_ukprank_train_loss = sum(ukprank_train_batch_weighted_losses) / len(ukprank_train_batch_weighted_losses)
+
+            mlflow.log_metric("avg_gretz_train_loss", avg_gretz_train_loss.item(), epoch)
+            mlflow.log_metric("avg_toledo_train_loss", avg_toledo_train_loss.item(), epoch)
+            mlflow.log_metric("avg_swanson_train_loss", avg_swanson_train_loss.item(), epoch)
+            mlflow.log_metric("avg_ukprank_train_loss", avg_ukprank_train_loss.item(), epoch)
+            mlflow.log_metric("avg_train_loss", total_train_loss, epoch)
 
         # load the last checkpoint with the best model
         self.model.load_state_dict(torch.load('checkpoint' + '.pt'))
@@ -341,10 +390,11 @@ if __name__ == '__main__':
     parser.add_argument('--datasets_folder', default="data", type=str)
     parser.add_argument('--pretrained_name_or_path', default="bert-base-uncased", type=str)
     parser.add_argument('--save_model', default=True, type=bool)
-    parser.add_argument('--save_or_load_model_path', default="/mnt/data2/Sid/arg_quality/pytorch/task4/models", type=str)
+    parser.add_argument('--save_or_load_model_path', default="/mnt/data2/Sid/arg_quality/pytorch/task4/models",
+                        type=str)
     parser.add_argument('--do_eval', default=True, type=bool)
     parser.add_argument('--save_results_path', default="/mnt/data2/Sid/arg_quality/pytorch/task4", type=str)
-    parser.add_argument('--do_train', default=True, type=bool)
+    parser.add_argument('--do_train', default=False, type=bool)
     parser.add_argument('--dataset_loss_method', default="equal", type=str)
     parser.add_argument('--seed_list', nargs="*", type=int, default=[42])
     parser.add_argument('--max_seq_length', default=85, type=int)
@@ -355,7 +405,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', default=5, type=int)
 
     args = parser.parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     n_gpu = torch.cuda.device_count()
     print("Using Device:", device)
@@ -364,135 +414,148 @@ if __name__ == '__main__':
     # set up evaluation directory and path
     args.save_results_path = os.path.join(args.save_results_path, "eval_results.csv")
 
-    for seed in args.seed_list:
+    # setup: mlflow tracking
+    mlflow.set_tracking_uri("http://mlflow.dbs.ifi.lmu.de:5000")
+    mlflow.set_experiment(experiment_name="sid_task4_exp1")
 
-        set_seed(seed)
+    with mlflow.start_run():
+        for seed in args.seed_list:
 
-        # set up model directory to save or load from
-        save_or_load_model_path = os.path.join(args.save_or_load_model_path, "model_" +
-                                                    str(args.dataset_loss_method) + str(seed))
-        if not os.path.exists(save_or_load_model_path):
-            os.makedirs(save_or_load_model_path)
+            set_seed(seed)
 
-        # initialize model
-        model = BertForSequenceClassification.from_pretrained(args.pretrained_name_or_path, output_hidden_states=True)
-        tokenizer = BertTokenizer.from_pretrained(args.pretrained_name_or_path, do_lower_case=False)
+            # set up model directory to save or load from
+            save_or_load_model_path = os.path.join(args.save_or_load_model_path, "model_" +
+                                                   str(args.dataset_loss_method) + str(seed))
+            if not os.path.exists(save_or_load_model_path):
+                os.makedirs(save_or_load_model_path)
 
-        # load the data as DataFile
-        data_files = load_data_files(args.datasets_folder)
-        # initialize the Processor
-        processor = StrengthProcessor(data_files)
+            # initialize model
+            model = BertForSequenceClassification.from_pretrained(args.pretrained_name_or_path,
+                                                                  output_hidden_states=True)
+            tokenizer = BertTokenizer.from_pretrained(args.pretrained_name_or_path, do_lower_case=False)
 
-        # start training
-        if args.do_train:
+            # load the data as DataFile
+            data_files = load_data_files(args.datasets_folder)
+            # initialize the Processor
+            processor = StrengthProcessor(data_files)
 
-            # prepare the train and validation datasets
-            train_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "train")
-            validation_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "dev")
+            # start training
+            if args.do_train:
 
-            # define the weights for each dataset loss
-            split_features_dict = defaultdict(list)
-            for feature in train_dataset:
-                split_features_dict[feature.data_set].append(feature)
-            dataset_weights = {key: 0 for key in split_features_dict.keys()}
+                # prepare the train and validation datasets
+                train_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "train")
+                validation_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "dev")
 
-            for dataset, features_list in split_features_dict.items():
-                if args.dataset_loss_method == "weighted":
-                    dataset_weights[dataset] = (1 / len(split_features_dict.keys())) \
-                                               * len(features_list) / len(train_dataset)
-                else:
-                    dataset_weights[dataset] = (1 / len(split_features_dict.keys()))
+                # define the weights for each dataset loss
+                split_features_dict = defaultdict(list)
+                for feature in train_dataset:
+                    split_features_dict[feature.data_set].append(feature)
+                dataset_weights = {key: 0 for key in split_features_dict.keys()}
 
-            # initialize trainer class
-            trainer = Trainer(model, args, train_dataset, validation_dataset, dataset_weights,
-                              save_or_load_model_path, Data_Collator)
-
-            # do training
-            trainer.train_data(device=device, batch_size=args.batch_size)
-
-        # start evaluation
-        if args.do_eval:
-
-            # prepare the test DataLoader
-            test_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "test")
-            test_data_loader = DataLoader(
-                test_dataset,
-                batch_size=args.batch_size,
-                collate_fn=Data_Collator.collate_batch,
-            )
-
-            # load the trained model from the provided path
-            out_model = BertForSequenceClassification.from_pretrained(save_or_load_model_path,
-                                                                      output_hidden_states=True)
-            out_model.to(device)
-            # Put model to eval mode
-            out_model.eval()
-
-            # Tracking results in a dict for each dataset since each batch might contain data from multiple data sets
-            data_set_test_result_dict = {}
-
-            # do evaluation
-            for batch in test_data_loader:
-
-                batch.move_tensors_to_device(device)
-
-                with torch.no_grad():
-
-                    outputs = out_model(batch, calculate_loss=False)
-                # Results from the forward pass are automatically separated by data set
-                for single_dataset_output in outputs.bert_single_dataset_outputs:
-                    # Move predictions and labels to CPU
-                    cpu_logits_lists = [slog.detach().cpu().numpy() for slog in single_dataset_output.logits]
-                    cpu_labels_lists = [slab.to('cpu').numpy() for slab in single_dataset_output.labels]
-                    data_set = single_dataset_output.data_set
-
-                    # Add results to the dict
-                    if data_set not in data_set_test_result_dict:
-                        data_set_test_result_dict[data_set] = TestResult(data_set, cpu_logits_lists,
-                                                                         cpu_labels_lists)
+                for dataset, features_list in split_features_dict.items():
+                    if args.dataset_loss_method == "weighted":
+                        dataset_weights[dataset] = (1 / len(split_features_dict.keys())) \
+                                                   * len(features_list) / len(train_dataset)
                     else:
-                        data_set_test_result_dict[data_set].predictions += cpu_logits_lists
-                        data_set_test_result_dict[data_set].true_labels += cpu_labels_lists
+                        dataset_weights[dataset] = (1 / len(split_features_dict.keys()))
 
-            # regression summary metrics
-            regression_results = []
+                # initialize trainer class
+                trainer = Trainer(model, args, train_dataset, validation_dataset, dataset_weights,
+                                  save_or_load_model_path, Data_Collator)
 
-            for data_set_name, data_set_test_result in data_set_test_result_dict.items():
+                # do training
+                trainer.train_data(device=device, batch_size=args.batch_size)
 
-                data_set_size = len(data_set_test_result.true_labels)
+            # start evaluation
+            if args.do_eval:
 
-                # Combine the correct labels for each batch into a single list.
-                flat_true_labels = [label.flatten() for label in data_set_test_result.true_labels]
-                flat_true_labels = np.concatenate(flat_true_labels, axis=0)
+                # prepare the test DataLoader
+                test_dataset = convert_features_to_dataset(processor, tokenizer, args.max_seq_length, "test")
+                test_data_loader = DataLoader(
+                    test_dataset,
+                    batch_size=args.batch_size,
+                    collate_fn=Data_Collator.collate_batch,
+                )
 
-                flat_predictions = [pred.flatten() for pred in data_set_test_result.predictions]
-                flat_predictions = np.concatenate(flat_predictions, axis=0)
+                # load the trained model from the provided path
+                print("loading model")
+                out_model = BertForSequenceClassification.from_pretrained(save_or_load_model_path,
+                                                                          output_hidden_states=True)
+                out_model.to(device)
+                # Put model to eval mode
+                out_model.eval()
 
-                pearson, spearman, corr = pearson_and_spearman(flat_predictions, flat_true_labels)
+                # Tracking results in a dict for each dataset since each batch might contain data from multiple data sets
+                data_set_test_result_dict = {}
+                total_test_loss = 0
+                # do evaluation
+                for batch in test_data_loader:
 
-                regression_result = [seed, args.dataset_loss_method, data_set_name, pearson, spearman,
-                                     corr, data_set_size]
+                    batch.move_tensors_to_device(device)
 
-                regression_results.append(regression_result)
+                    with torch.no_grad():
 
-            reg_results_df = pd.DataFrame(regression_results)
-            if not os.path.exists(args.save_results_path):
-                reg_results_df.to_csv(args.save_results_path, sep=",",
-                                      header=["seed", "loss_method", "dataset", "pearson", "spearman",
-                                              "corr", "dataset_size"], index=False)
-            else:
-                reg_results_df.to_csv(args.save_results_path, index=False, mode='a', header=False)
+                        outputs = out_model(batch, calculate_loss=False)
+                    # Results from the forward pass are automatically separated by data set
+                    for single_dataset_output in outputs.bert_single_dataset_outputs:
+                        # Move predictions and labels to CPU
+                        loss_fct = torch.nn.MSELoss()
+                        test_batch_loss = loss_fct(single_dataset_output.logits.view(-1), single_dataset_output.labels.view(-1))
 
+                        cpu_logits_lists = [slog.detach().cpu().numpy() for slog in single_dataset_output.logits]
+                        cpu_labels_lists = [slab.to('cpu').numpy() for slab in single_dataset_output.labels]
+                        data_set = single_dataset_output.data_set
 
+                        # Add results to the dict
+                        if data_set not in data_set_test_result_dict:
+                            data_set_test_result_dict[data_set] = TestResult(data_set, cpu_logits_lists,
+                                                                             cpu_labels_lists, test_batch_loss)
+                        else:
+                            data_set_test_result_dict[data_set].predictions += cpu_logits_lists
+                            data_set_test_result_dict[data_set].true_labels += cpu_labels_lists
+                            data_set_test_result_dict[data_set].loss += test_batch_loss
 
+                # regression summary metrics
+                regression_results = []
 
+                for data_set_name, data_set_test_result in data_set_test_result_dict.items():
+                    data_set_size = len(data_set_test_result.true_labels)
 
+                    # Combine the correct labels for each batch into a single list.
+                    flat_true_labels = [label.flatten() for label in data_set_test_result.true_labels]
+                    flat_true_labels = np.concatenate(flat_true_labels, axis=0)
 
+                    flat_predictions = [pred.flatten() for pred in data_set_test_result.predictions]
+                    flat_predictions = np.concatenate(flat_predictions, axis=0)
 
+                    pearson, spearman, corr = pearson_and_spearman(flat_predictions, flat_true_labels)
 
+                    if data_set_name == "gretz.csv":
+                        mlflow.log_metric("gretz_test_loss", data_set_test_result.loss.item())
+                        mlflow.log_metric("gretz_pearson", pearson)
+                        mlflow.log_metric("gretz_spearman", spearman)
+                    elif data_set_name == "toledo.csv":
+                        mlflow.log_metric("toledo_test_loss", data_set_test_result.loss.item())
+                        mlflow.log_metric("toledo_pearson", pearson)
+                        mlflow.log_metric("toledo_spearman", spearman)
+                    elif data_set_name == "swanson.csv":
+                        mlflow.log_metric("swanson_test_loss", data_set_test_result.loss.item())
+                        mlflow.log_metric("swanson_pearson", pearson)
+                        mlflow.log_metric("swanson_spearman", spearman)
+                    else:
+                        mlflow.log_metric("ukp_test_loss", data_set_test_result.loss.item())
+                        mlflow.log_metric("ukp_pearson", pearson)
+                        mlflow.log_metric("ukp_spearman", spearman)
 
+                    regression_result = [seed, args.dataset_loss_method, data_set_name, pearson, spearman,
+                                         corr, data_set_size]
 
+                    regression_results.append(regression_result)
 
-
-
-
+                reg_results_df = pd.DataFrame(regression_results)
+                if not os.path.exists(args.save_results_path):
+                    reg_results_df.to_csv(args.save_results_path, sep=",",
+                                          header=["seed", "loss_method", "dataset", "pearson", "spearman",
+                                                  "corr", "dataset_size"], index=False)
+                else:
+                    reg_results_df.to_csv(args.save_results_path, index=False, mode='a', header=False)
