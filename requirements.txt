@@ -4,12 +4,14 @@ matplotlib==3.3.4
 mlflow==1.14.1
 numpy==1.21.0
 pandas==1.1.5
-ray==2.0.0.dev0
+"ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp37-cp37m-manylinux2014_x86_64.whl"
 scikit-learn==0.24.1
+scipy==1.7.0
 setuptools==57.0.0
 tensorboardX==2.2
 torch==1.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 tqdm==4.56.2
 transformers==4.3.2
 
-# to install
+# if pip install doesn't work for ray tune, separately run the below command
+# pip install "ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp38-cp38-manylinux2014_x86_64.whl"

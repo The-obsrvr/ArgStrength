@@ -31,7 +31,7 @@ class EarlyStopping:
     Early stops the training if validation loss doesn't improve after a given patience.
     """
 
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, patience=7, verbose=False, delta=0, save_model: bool = True):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -40,6 +40,7 @@ class EarlyStopping:
                             Default: False
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
                             Default: 0
+            save_model (bool): whether the model should be saved or not.
         """
         self.patience = patience
         self.verbose = verbose
@@ -48,6 +49,7 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.Inf
         self.delta = delta
+        self.save_model = save_model
 
     def __call__(self, val_loss, model, optimizer, path):
 
@@ -55,7 +57,8 @@ class EarlyStopping:
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, path)
+            if self.save_model:
+                self.save_checkpoint(val_loss, model, optimizer, path)
         elif score < self.best_score + self.delta:
             self.counter += 1
             # print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -63,7 +66,8 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, path)
+            if self.save_model:
+                self.save_checkpoint(val_loss, model, optimizer, path)
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model, optimizer, dir_path):
@@ -164,7 +168,7 @@ class ArgStrTrainer(Trainer):
         self.dataset_weights = dataset_weights
 
     def _evaluate_model(self, device: torch.device, batch_dataloader: DataLoader, mode: str,
-                        epoch: int, mlflow_logging: bool=True) -> Tuple:
+                        epoch: int, mlflow_logging: bool = True) -> Tuple:
         """
 
         :param device:
@@ -315,11 +319,15 @@ class ArgStrTrainer(Trainer):
 
             return gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson
 
-    def train_model(self, device: torch.device, optimizer_state=None, mlflow_logging: bool=True):
+    def train_model(self, device: torch.device, optimizer_state=None,
+                    mlflow_logging: bool = True,
+                    retraining: bool = False, seed_value: int = 3):
         """
         Main data training method. We use a pre-trained BERT model with a single linear classification layer on top.
         Uses early stopping and returns the best model trained. (Maximum number of epochs prevents infinite runtime).
 
+        :param seed_value:
+        :param retraining:
         :param mlflow_logging:
         :param optimizer_state:
             The saved optimizer state.
@@ -328,10 +336,16 @@ class ArgStrTrainer(Trainer):
         :returns:
             The best model trained after stopping early.
         """
+        save_model = True
+        tune_report = True
+        eval_path = None
+        if retraining:
+            save_model = False
+            tune_report = False
+            eval_path = "./randomized_results/randomized_results.csv"
 
         # Get the data loaders
         train_dataloader = self.get_dataloader(self.train_dataset, is_train=True)
-
         validation_dataloader = self.get_dataloader(self.eval_dataset)
         test_dataloader = self.get_dataloader(self.test_dataset)
 
@@ -357,11 +371,11 @@ class ArgStrTrainer(Trainer):
         # total_t0 = time.time()
 
         # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True, save_model=save_model)
         early_stop = False
 
         avg_train_loss, avg_val_loss, avg_test_loss, gretz_pearson, toledo_pearson, \
-        ukp_pearson, swanson_pearson = 0, 0, 0, 0, 0, 0, 0
+        ukp_pearson, swanson_pearson, avg_test_pearson = 0, 0, 0, 0, 0, 0, 0, 0
 
         # We loop epochs until a max, however early stopping should end training much sooner!
         for epoch in tqdm(range(self.args.max_num_train_epochs)):
@@ -439,7 +453,7 @@ class ArgStrTrainer(Trainer):
 
                     # early_stopping needs the validation loss to check if it has decreased,
                     # and if it has, it will make a checkpoint of the current model
-                    if mlflow_logging:
+                    if tune_report and save_model:
                         with tune.checkpoint_dir(step=self.global_step) as checkpoint_dir:
                             # This is the directory name that Huggingface requires.
                             output_dir = os.path.join(
@@ -447,9 +461,11 @@ class ArgStrTrainer(Trainer):
                                 "best_model-{}".format(self.global_step))
                             os.makedirs(output_dir, exist_ok=True)
                     else:
-                        output_dir = os.path.join(str(self.task_name), "best_model-{}".format(self.global_step))
-                        os.makedirs(output_dir, exist_ok=True)
-
+                        if save_model:
+                            output_dir = os.path.join(str(self.task_name), "best_model-{}".format(self.global_step))
+                            os.makedirs(output_dir, exist_ok=True)
+                        else:
+                            output_dir = None
                     early_stopping(avg_val_loss, self.model, optimizer, output_dir)
 
                     if early_stopping.early_stop:
@@ -514,21 +530,39 @@ class ArgStrTrainer(Trainer):
                 avg_train_loss = total_train_loss / len(train_dataloader)
                 mlflow.log_metric("avg_train_loss", avg_train_loss, epoch)
 
-                # report the metrics back to tune.
                 pearson_array = np.array([gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson])
                 avg_test_pearson = pearson_array[pearson_array != 0].mean()
                 mlflow.log_metric("avg_pearson", avg_test_pearson, epoch)
 
-                report_metrics = {"epoch": epoch,
-                                  "avg_train_loss": avg_train_loss,
-                                  "avg_val_loss": avg_val_loss,
-                                  "avg_test_loss": avg_test_loss,
-                                  "gretz_pearson": gretz_pearson,
-                                  "toledo_pearson": toledo_pearson,
-                                  "ukp_pearson": ukp_pearson,
-                                  "swanson_pearson": swanson_pearson,
-                                  "avg_pearson": avg_test_pearson}
-                tune.report(**report_metrics)
+                # report the metrics back to tune.
+                if tune_report:
+                    report_metrics = {"epoch": epoch,
+                                      "avg_train_loss": avg_train_loss,
+                                      "avg_val_loss": avg_val_loss,
+                                      "avg_test_loss": avg_test_loss,
+                                      "gretz_pearson": gretz_pearson,
+                                      "toledo_pearson": toledo_pearson,
+                                      "ukp_pearson": ukp_pearson,
+                                      "swanson_pearson": swanson_pearson,
+                                      "avg_pearson": avg_test_pearson}
+                    tune.report(**report_metrics)
+
+        if retraining:
+            # save metrics from final epoch to a csv file
+            eval_results = pd.DataFrame({"model_id": self.task_name,
+                                         "seed": seed_value,
+                                         "avg_train_loss": avg_train_loss,
+                                         "avg_val_loss": avg_val_loss,
+                                         "avg_test_loss": avg_test_loss,
+                                         "gretz_pearson": gretz_pearson,
+                                         "toledo_pearson": toledo_pearson,
+                                         "ukp_pearson": ukp_pearson,
+                                         "swanson_pearson": swanson_pearson,
+                                         "avg_pearson": avg_test_pearson}, index=[0])
+            if not os.path.exists(eval_path):
+                eval_results.to_csv(eval_path, index=False)
+            else:
+                eval_results.to_csv(eval_path, index=False, mode='a', header=False)
 
     @staticmethod
     def apply_dropout(m):
@@ -599,19 +633,19 @@ class ArgStrTrainer(Trainer):
             if len(logits_dict["gretz"]) > 0:
                 gretz_logits = [x.tolist() for sublist in logits_dict["gretz"] for x in sublist]
             else:
-                gretz_logits = [None for sublist in logits_dict["ukp"] for x in sublist]
+                gretz_logits = [None for sublist in logits_dict["ukp"] for _ in sublist]
             if len(logits_dict["toledo"]) > 0:
                 toledo_logits = [x.tolist() for sublist in logits_dict["toledo"] for x in sublist]
             else:
-                toledo_logits = [None for sublist in logits_dict["ukp"] for x in sublist]
+                toledo_logits = [None for sublist in logits_dict["ukp"] for _ in sublist]
             if len(logits_dict["swanson"]) > 0:
                 swanson_logits = [x.tolist() for sublist in logits_dict["swanson"] for x in sublist]
             else:
-                swanson_logits = [None for sublist in logits_dict["ukp"] for x in sublist]
+                swanson_logits = [None for sublist in logits_dict["ukp"] for _ in sublist]
             if len(logits_dict["ukp"]) > 0:
                 ukp_logits = [x.tolist() for sublist in logits_dict["ukp"] for x in sublist]
             else:
-                ukp_logits = [None for sublist in logits_dict["gretz"] for x in sublist]
+                ukp_logits = [None for sublist in logits_dict["gretz"] for _ in sublist]
 
             complete_logits_list.append([dataset_list, labels_list, gretz_logits,
                                          toledo_logits, swanson_logits, ukp_logits])
@@ -621,17 +655,5 @@ class ArgStrTrainer(Trainer):
                                         "swanson_logits", "ukp_logits"])
         path_name = "infer_logits_" + exp_name + ".csv"
         data_df.to_csv(path_name)
-
-        return None
-
-    def retrain_model(self, train_dataset, device: torch.device, task_dict: List = None, exp_name: str= "abc"):
-        """
-
-        :param exp_name:
-        :param task_dict:
-        :param device:
-        :param train_dataset:
-        :return:
-        """
 
         return None

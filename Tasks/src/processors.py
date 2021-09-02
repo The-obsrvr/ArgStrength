@@ -3,7 +3,7 @@ contains function that read input data files and generates features ~ batches
 
 """
 # local Imports
-from utils import InputExample, InputFeatures, DataFile, Split, Columns, load_data_files, topic_splitter
+from utils import InputExample, InputFeatures, DataFile, Split, Columns, load_data_files
 
 # Standard Imports
 from typing import List
@@ -16,7 +16,7 @@ from transformers import BertTokenizer
 
 
 class StrengthProcessor:
-    def __init__(self, data_files: List[DataFile], task_name: str, split_by_topic: bool = False):
+    def __init__(self, data_files: List[DataFile], task_name: str):
         """
         Abstract processor with initialization for preprocessed data_files. Provides methods to create
         examples for training/validation/testing. Processors differ by their task (labels, output_mode,...).
@@ -25,13 +25,9 @@ class StrengthProcessor:
             data files for this processor
         :param task_name:
             name of the task to be performed
-        :param split_by_topic:
-            whether to re-distribute the train-dev-test sets by the dataset's topic distribution
         """
         self.task_name = task_name
         self.data_files = data_files
-        if split_by_topic:
-            self.data_files = topic_splitter(self.data_files, seed=0)
 
     def get_train_examples(self) -> List[InputExample]:
         """See base class."""
@@ -134,9 +130,11 @@ def _convert_examples_to_features(
 
     # The actual encoding of sentences, with padding and max length! Text_a = sentences, text_b = Topics~ dataset_name!
     batch_encoding = tokenizer.batch_encode_plus(
-        [(example.text_a, example.text_b) for example in examples], max_length=max_length, pad_to_max_length=True,
+        [(example.text_a, example.text_b) for example in examples],
+        max_length=max_length,
+        padding='max_length',
+        truncation=True
     )
-
     features = []
     for i in range(len(examples)):
         inputs = {k: batch_encoding[k][i] for k in batch_encoding}
@@ -190,7 +188,9 @@ def find_max_length(tokenizer, processor, p: float) -> int:
 
 
 def get_datasets(config):
-    data_files, task_dict = load_data_files(config["data_dir"], config["task_name"])
+    data_files, task_list = load_data_files(config["data_dir"],
+                                            task_name=config["task_name"],
+                                            split_by_topic=config["split_by_topic"])
     # initialize the Processor
     processor = StrengthProcessor(data_files, task_name=config["task_name"])
     if "cased" in config["bert_arch"]:
@@ -203,9 +203,11 @@ def get_datasets(config):
                                                 "train", config["max_seq_length"], config["max_seq_length_perc"])
     validation_dataset = convert_features_to_dataset(processor, tokenizer,
                                                      "dev", config["max_seq_length"], config["max_seq_length_perc"])
-    test_dataset = convert_features_to_dataset(processor, tokenizer, "test",
-                                               config["max_seq_length"], config["max_seq_length_perc"])
+    test_dataset = convert_features_to_dataset(processor, tokenizer,
+                                               "test", config["max_seq_length"], config["max_seq_length_perc"])
 
-    print("Length of training:", len(train_dataset))
-    print("Length of testing:", len(test_dataset))
-    return train_dataset, validation_dataset, test_dataset, task_dict
+    mlflow.log_param("length_of_training", len(train_dataset))
+    mlflow.log_param("length_of_validation", len(validation_dataset))
+    mlflow.log_param("length_of_test", len(test_dataset))
+
+    return train_dataset, validation_dataset, test_dataset, task_list

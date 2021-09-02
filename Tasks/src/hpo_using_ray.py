@@ -26,10 +26,6 @@ from torch.nn.parallel import DistributedDataParallel
 from transformers import BertConfig
 
 
-# Create MLflow experiment
-# mlflow.create_experiment("sid_task4_hpov1")
-
-
 @mlflow_mixin
 def train_bert(config, checkpoint_dir=None):
     """
@@ -158,7 +154,7 @@ if __name__ == '__main__':
     exp_name = task_name + "_v1_bb"
 
     # define the path from where the task data is loaded from.
-    task_data_dir = "/mnt/data2/Sid/arg_quality/pytorch/task4/data/*.csv"
+    task_data_dir = "/mnt/data2/Sid/arg_quality/pytorch/task4_hpo/data/*.csv"
 
     # define config
     config = {
@@ -173,6 +169,7 @@ if __name__ == '__main__':
         },
 
         "data_dir": task_data_dir,
+        "split_by_topic": True if "randomized" in task_name else False,
         "eval_batch_size": 128,
         "train_batch_size": tune.choice([64]),
         "max_seq_length": None,
@@ -263,11 +260,10 @@ if __name__ == '__main__':
     best_config["best_checkpoint_path"] = best_checkpoint
     print("Best Config details:", best_config)
 
-    best_model_path_name = "./best_model_details_" + exp_name + ".json"
+    best_model_path_name = "./configs/best_model_details_" + exp_name + ".json"
 
     with open(best_model_path_name, 'w') as f:
         f.write(json.dumps(best_config, default=lambda x: '<not serializable>'))
 
 
-# :TODO: 3. Write inference step for STLAS? ~ not needed right now
-# :TODO: 5. correct truncation and distributed computing
+# :TODO: 5. correct distributed computing

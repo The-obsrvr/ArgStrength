@@ -5,7 +5,7 @@ from modeling import ArgStrModel
 from arguments import TrainingArguments
 from training import ArgStrTrainer
 from processors import get_datasets
-from utils import pearson_and_spearman, Data_Collator
+from utils import Data_Collator
 
 # Standard Imports
 import os

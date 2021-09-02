@@ -119,7 +119,7 @@ class TrainingArguments:
     learning_rate: float = field(default=2e-5, metadata={"help": "The initial learning rate for Adam. Default: '2e-5'"})
     adam_epsilon: float = field(default=1e-8, metadata={"help": "Epsilon for Adam optimizer. Default: '1e-8'"})
     weight_decay: float = field(default=0.1, metadata={"help": "Learning Rate weight decay."})
-    max_num_train_epochs: float = field(default=20.0, metadata={"help": "Maximum number of training epochs to perform. "
+    max_num_train_epochs: int = field(default=20, metadata={"help": "Maximum number of training epochs to perform. "
                                                                         "Early Stopping should kick in before."
                                                                         "Default: 20"})
     patience: int = field(default=5, metadata={"help": "Patience for early stopping. Default: 5.0"})

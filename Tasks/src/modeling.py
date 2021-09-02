@@ -14,7 +14,7 @@ class ArgStrModel(BertPreTrainedModel):
 
     def __init__(self, config=None, dropout_prob=0.2, bert_hidden_layers=None,
                  mlp_config=None, task_dict=None, device=None):
-        super().__init__(config)
+        super(ArgStrModel, self).__init__(config)
 
         self.bert = BertModel(config)
         self.hidden_size = config.hidden_size

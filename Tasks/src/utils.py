@@ -13,6 +13,7 @@ import torch
 import pandas as pd
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
+import mlflow
 
 
 class Split(Enum):
@@ -249,13 +250,19 @@ def pearson_and_spearman(preds, labels) -> Tuple[float, Any, Any]:
     return pearson_corr, spearman_corr, (pearson_corr + spearman_corr) / 2,
 
 
-def set_seed(seed=3):
+def set_seed(seed: int = 3) -> int:
+    """
+    set seed value
+    :param seed: seed value to set
+    :return: seed value
+    """
+
+    np.random.seed(seed)
+    random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
 
 
@@ -268,8 +275,8 @@ class DataFile:
         """
         self.split_by_topic = split_by_topic
         self.data_path = data_path
-        self.data_lines, self.dataset_length = self._read_csv()
         self.dataset_name = os.path.basename(self.data_path)[:-4]
+        self.data_lines, self.dataset_length = self._read_csv()
 
     def _read_csv(self, quotechar: str = '"'):
         """Reads a comma separated value file. Returns list of read csv lines
@@ -279,20 +286,62 @@ class DataFile:
         :return data_length: data lines and dictionary of the number of the dev, test, and train data lines.
         """
         with open(self.data_path, "r", encoding="utf-8") as f:
-            lines = list(csv.reader(f, delimiter=",", quotechar=quotechar))
             self.df = pd.read_csv(f.name)
-            self.df.name = os.path.basename(self.data_path)[:-4]
-            if self.split_by_topic:
-                lines = topic_splitter(self.df)
             dataset_length = self.df.groupby(self.df["set"])['id'].count().to_dict()
+            if self.split_by_topic:
+                self._redefine_topics()
+                lines = self._topic_splitter()
+            else:
+                lines = list(csv.reader(f, delimiter=",", quotechar=quotechar))
 
             return lines, dataset_length
 
+    def _redefine_topics(self):
+        """
+        Eliminates stance information from the topic string to make them uniform.
+        :return:
+            df with modified topic.
+        """
+        if self.dataset_name == "toledo":
+            self.df["modified_topic"] = self.df["topic"].str[:-6]
+        elif self.dataset_name == "ukp":
+            self.df["modified_topic"] = self.df["topic"].str.split("_", n=1, expand=True)[0]
+        else:
+            self.df["modified_topic"] = self.df["topic"]
 
-def load_data_files(dataset_folder_path: str, task_name: str, split_by_topic:bool = False) -> Tuple[List[DataFile], List[str]]:
+    def _topic_splitter(self):
+        """
+        Splits the datasets into the train-dev-test sets based on the topic distribution.
+        :return:
+        """
+        ds_topic_list = self.df["modified_topic"].unique()
+        random.shuffle(ds_topic_list)
+        if self.dataset_name == "swanson":
+            ratio = 1
+        else:
+            ratio = int(len(ds_topic_list) / 5)
+
+        ds_topic_test = ds_topic_list[:ratio]
+        ds_topic_dev = ds_topic_list[ratio:2 * ratio]
+        ds_topic_train = ds_topic_list[2 * ratio:]
+
+        self.df.loc[self.df["modified_topic"].isin(ds_topic_train), "set"] = "train"
+        self.df.loc[self.df["modified_topic"].isin(ds_topic_dev), "set"] = "dev"
+        self.df.loc[self.df["modified_topic"].isin(ds_topic_test), "set"] = "test"
+
+        # drop the modified_topics column
+        self.df.drop(columns=["modified_topic"], inplace=True)
+        # convert to lines
+        lines = self.df.astype(str).values.tolist()
+
+        return lines
+
+
+def load_data_files(dataset_folder_path: str, task_name: str, split_by_topic: bool = False)\
+        -> Tuple[List[DataFile], List[str]]:
     """
-
-    :param split_by_topic:
+    Reads the different data files from the provided data set folder.
+    :param split_by_topic: whether to split the train-dev-test by the topics ratio.
     :param task_name:
     :param dataset_folder_path:
     :return:
@@ -302,26 +351,6 @@ def load_data_files(dataset_folder_path: str, task_name: str, split_by_topic:boo
     task_list = [dataset.dataset_name for dataset in datasets_list
                  if str("LOO_" + dataset.dataset_name) not in task_name]
     return datasets_list, task_list
-
-
-def topic_splitter(dataset, seed):
-
-        ds_topic_list = dataset["topic"].unique()
-        random.Random(seed).shuffle(ds_topic_list)
-        if dataset.dataset_name == "swanson":
-            ratio = 1
-        else:
-            ratio = int(len(ds_topic_list) / 5)
-
-        ds_topic_test = ds_topic_list[:ratio]
-        ds_topic_dev = ds_topic_list[ratio:2 * ratio]
-        ds_topic_train = ds_topic_list[2 * ratio:]
-
-        dataset.loc[dataset["topic"].isin(ds_topic_train)]["set"] = "train"
-        dataset.loc[dataset["topic"].isin(ds_topic_dev)]["set"] = "dev"
-        dataset.loc[dataset["topic"].isin(ds_topic_test)]["set"] = "test"
-
-    return datasets
 
 
 def split_features_by_dataset(features) -> defaultdict:
