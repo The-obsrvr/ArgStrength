@@ -1,5 +1,7 @@
 # -*- coding utf-8 -*-
-
+"""
+Defines the Model class as per the pytorch lightning structure and functions.
+"""
 # Standard Imports
 import logging as log
 from abc import ABC
@@ -26,7 +28,7 @@ from datasets import ArgTokenizer, ArgumentDataset
 
 class ArgStrRanker(pl.LightningModule, ABC):
     """
-
+    Class definition for the argument strength model based on the chosen hyperparameter setting. 
     """
 
     @property
@@ -115,7 +117,7 @@ class ArgStrRanker(pl.LightningModule, ABC):
 
     def __init__(self, hparams) -> None:
         """
-
+        Initialize the class object.
         :param hparams: ArgumentParser containing the hyperparameters
         """
         super(ArgStrRanker, self).__init__()
@@ -141,7 +143,7 @@ class ArgStrRanker(pl.LightningModule, ABC):
         self.save_hyperparameters(hparams)
 
     def _build_model(self):
-        """ Initialize BERT model + Tokenizer + Regression Unit """
+        """ Initialize Encoder model + Tokenizer + Regression Unit """
         # BERT
         self.bert = BertModel.from_pretrained(self.hparams.encoder_model,
                                               output_hidden_states=True)
@@ -165,7 +167,7 @@ class ArgStrRanker(pl.LightningModule, ABC):
 
     def _generate_regression_unit(self):
         """
-
+        define the regression unit based on the hyperparameter combination. 
         :return:
         """
         last_dim = self.bert.config.hidden_size * self.hparams.bert_hidden_layers
@@ -301,8 +303,8 @@ class ArgStrRanker(pl.LightningModule, ABC):
     def loss(self, predictions: dict, targets: dict) -> torch.Tensor:
         """
 
-        :param predictions:
-        :param targets:
+        :param predictions: dict containing the predicted logits and the datasets info.
+        :param targets: dict containing the label/target value.
         :return:
         """
         if self.hparams.task_name:
@@ -341,9 +343,9 @@ class ArgStrRanker(pl.LightningModule, ABC):
                         return_by_dataset: bool = False,
                         log_metrics: bool = True):
         """
-
-        :param log_metrics:
-        :param return_by_dataset:
+        Calculates the performance metrics: Pearson's Correlation Coefficient and Spearman Rank Correlation Coefficient by dataset and overall.
+        :param log_metrics: Whether to log the metrics values to MLFlow.
+        :param return_by_dataset: Whether to return the performance metrics by dataset value.
         :param predictions: Dict containing: logits: single tensor containing logit values; datasets
         :param targets: dict containing labels
         :return:
@@ -385,11 +387,10 @@ class ArgStrRanker(pl.LightningModule, ABC):
     def training_step(self, batch, batch_idx, *args, **kwargs) -> dict:
         """
         Run one training step consisting of one forward function and one loss function
-        :param batch:
-        :param batch_idx:
-        :param args:
-        :param kwargs:
-        :return:
+        :param batch: batch containing the data inputs as defined by the dataloader and Dataset class object.
+        :param batch_idx: batch id
+
+        :return: output from the model. 
         """
         inputs, targets = batch
         assert len(inputs["input_ids"]) == len(targets["labels"])
@@ -410,12 +411,11 @@ class ArgStrRanker(pl.LightningModule, ABC):
 
     def validation_step(self, batch, batch_idx, *args, **kwargs) -> dict:
         """
+        Run one validation step consisting of one forward function and one loss function
+        :param batch: batch containing the data inputs as defined by the dataloader and Dataset class object.
+        :param batch_idx: batch id
 
-        :param batch:
-        :param batch_idx:
-        :param args:
-        :param kwargs:
-        :return:
+        :return: output from the model.
         """
         inputs, targets = batch
         assert len(inputs["input_ids"]) == len(targets["labels"])
@@ -441,8 +441,7 @@ class ArgStrRanker(pl.LightningModule, ABC):
         return output
 
     def validation_epoch_end(self, outputs: dict) -> dict:
-        """Function that takes as input a list of dictionaries returned by the validation_step
-                function and measures the model performance across the entire validation set.
+        """Function that takes as input a list of dictionaries returned by the validation_step function and measures the model performance across the entire validation set.
                 Returns:
                     - Dictionary with metrics to be added to the lightning logger.
                 """
@@ -481,12 +480,10 @@ class ArgStrRanker(pl.LightningModule, ABC):
 
     def test_step(self, batch, batch_idx, *args, **kwargs) -> dict:
         """
-
-        :param batch:
-        :param batch_idx:
-        :param args:
-        :param kwargs:
-        :return:
+        Runs single testing step consisting of one forward function and one loss function. 
+        :param batch: batch
+        :param batch_idx: batch id
+        :return: test output of one batch.
         """
         inputs, targets = batch
         assert len(inputs["input_ids"]) == len(targets["labels"])
@@ -509,8 +506,7 @@ class ArgStrRanker(pl.LightningModule, ABC):
         return output
 
     def test_epoch_end(self, outputs: list) -> dict:
-        """Function that takes as input a list of dictionaries returned by the validation_step
-                        function and measures the model performance across the entire validation set.
+        """Function that takes as input a list of dictionaries returned by the validation_step function and measures the model performance across the entire validation set.
                         Returns:
                             - Dictionary with metrics to be added to the lightning logger.
                         """
@@ -543,8 +539,8 @@ class ArgStrRanker(pl.LightningModule, ABC):
 
     def predict(self, batch, device) -> dict:
         """
-
-        :param device:
+        Performs prediction step for one batch input.
+        :param device: device on which the computation is performed.
         :param batch: ith predict batch
         :return: logits_dict
         """

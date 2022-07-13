@@ -7,6 +7,7 @@ import glob
 import random
 from datetime import datetime
 
+# third party imports.
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -19,6 +20,7 @@ from ray.tune.schedulers import PopulationBasedTraining
 # from ray.tune.integration.pytorch_lightning import TuneReportCallback, \
 #     TuneReportCheckpointCallback
 
+# local imports
 from regressor import ArgStrRanker
 
 
@@ -28,7 +30,6 @@ def main(hparams) -> None:
     :param hparams:
     :return:
     """
-    # :TODO: update function to accomodate ray tune.
     #  initialize model and data
     model = ArgStrRanker(hparams)
 
@@ -57,7 +58,7 @@ def main(hparams) -> None:
     # Model Checkpoint Callback
     ckpt_path = os.path.join("experiments/", str(tb_logger.version), "checkpoints")
 
-    # 4 Initialize checkpoint callback
+    # Initialize checkpoint callback
     # -------------------------------
     checkpoint_callback = ModelCheckpoint(
         dirpath=ckpt_path,
@@ -136,6 +137,8 @@ def main(hparams) -> None:
 
 def tuning_pbt_exp(params):
     """
+    !!! The function is not complete, debugged, and tested. 
+    Defines the hyperparameter optimization function using ray tune. Integratable with lightning.
 
     :param params:
     :return:
@@ -254,7 +257,7 @@ if __name__ == "__main__":
         "--use_tuning",
         default=False,
         type=bool,
-        help="Whether to use Ray Tune for hyperparameter optimization."
+        help="Whether to use Ray Tune for hyperparameter optimization. Currently not functional. Requires debugging."
     )
     parser.add_argument(
         "--num_samples",
@@ -266,7 +269,7 @@ if __name__ == "__main__":
         "--config_file_path",
         default=None,
         type=str,
-        help="Path to config file containing hoptimized hyperparameters"
+        help="Path to config file containing hoptimized hyperparameters. Currently not functional. Requires debugging"
     )
 
     # Early Stopping
@@ -405,7 +408,7 @@ if __name__ == "__main__":
             # :TODO: read config file and update hparams.
             # read config file
             # update hparams.
-            hparams.learning_rate = 1.0
+            # hparams.learning_rate = 1.0
 
         if hparams.run_seed is not None:
             #  single seed run
@@ -439,5 +442,3 @@ if __name__ == "__main__":
                 })
 
             print(random_results_agg)
-
-    # :TODO add in ray tune - currently doing.
