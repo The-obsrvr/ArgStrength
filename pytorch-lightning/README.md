@@ -1,4 +1,4 @@
-<h1> Pytorch Ligthning </h1>
+<h1> Pytorch Lightning </h1>
 
 <h3> Directory Structure </h3>
 
@@ -48,8 +48,11 @@ where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and 
 <h5> Training Example</h5>
 
 <b> Single Task Learning for only SwanRank dataset with topic information and balanced sampling </b>
+
 `python training.py --task_name=STLAS_only_swanson --gpus 0 --sampling_strategy balanced --train_batch_size=64`
 
 <h5> Inference Example (only used for multi-task learning setting)</h5>
 
 `python inference.py --experiment=experiments/version_26-02-2022--23-03-14/ --aggregation_method=wt-var --gpus=3`
+
+The 'experiment' argument contains the path to the experiment folder containing te best checkpoint and the file containing the hyperparameter list.
