@@ -56,4 +56,4 @@ where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and 
 
 `python inference.py --experiment=experiments/version_26-02-2022--23-03-14/ --aggregation_method=wt-var --gpus=3`
 
-The 'experiment' argument contains the path to the experiment folder containing te best checkpoint and the file containing the hyperparameter list.
+The 'experiment' argument contains the path to the experiment folder containing the best checkpoint and the file containing the hyperparameter list.
