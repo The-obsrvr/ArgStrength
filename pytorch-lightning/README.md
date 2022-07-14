@@ -29,8 +29,27 @@ The src folder contains all the scripts that have been used for execution. Each 
 || variance | use the score value of the minimum variance regression unit | Specify "var" in '--aggregation_method' argument |
 || weighted variance | use the score value of the minimum weighted variance regression unit | Specify "wt-var" in '--aggregation_method' argument |
 
+Data Source Codes used in the code:
+
+- IBMArgQ : "gretz"
+- IBMRank : "toledo"
+- UKPConvArgRank : "ukp"
+- SwanRank : "swanson"
+- Webis : "webis"
+
+Structure of the task name argument:
+{a}\_{b}\_{c}
+
+where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and takes value of "only" or "LOO" or not mentioned (all included). "c" is optional and takes the value of any one of the data source codes (mentioned above). If "b" takes a value, then "c" is required to inform the system to include/exclude a data source from training.
+
+
 <h3> Example Execution </h3>
 
+<h5> Training Example</h5>
 
+<b> Single Task Learning for only SwanRank dataset with topic information and balanced sampling </b>
+`python training.py --task_name=STLAS_only_swanson --gpus 0 --sampling_strategy balanced --train_batch_size=64`
 
-   
+<h5> Inference Example (only used for multi-task learning setting)</h5>
+
+`python inference.py --experiment=experiments/version_26-02-2022--23-03-14/ --aggregation_method=wt-var --gpus=3`
