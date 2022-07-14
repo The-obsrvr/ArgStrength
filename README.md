@@ -1,4 +1,4 @@
-<h1> Generalization in Diverse-Aware Argument Strength Models </h1>
+<h1> Generalization in Diversity-Aware Argument Strength Models </h1>
 <h5> Master Thesis <br>
 Siddharth Bhargava </h5>
 
