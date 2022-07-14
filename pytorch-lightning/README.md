@@ -2,7 +2,7 @@
 
 <h3> Directory Structure </h3>
 
-In the Data folder, the five data sets are available These have been pre-processed and structured uniformly as mentioned in the data-prep notebook found in the raw-data directory in the home page. 
+In the Data folder, the five data sets are available These have been pre-processed and structured uniformly as mentioned in the data-prep notebook found in the Data-prep directory in the home page. 
 
 The src folder contains all the scripts that have been used for execution. Each script has been provided with useful comments and explanation to help improve understanding of each function and logic. The "datasets.py" contains information about the dataset class. This involves loading the data files as per the experiment setting, preparing the data, tokenizing it and compiling the training/validation/testing data sets to be loadable into the model. The "regressor.py" defines the model class as per the lightningmodule class. It includes defining the structure of the model (encoder unit and the regression unit), defining the training, validation, testing, performance calculation and inference steps based on the hyperparameter setting as set. The "training.py" script is used to define the training of the model as per the pytorch lightning setting. This includes the logging of parameters and metrics on MLflow, Early Stopping, checkpointing, ray tune based optimization, etc. Apart from this, the script can also be used to perform the task of testing for a given model. The "inference.py" script does the task of prediction for the given data file(s). The "utils.py" and "prepare_results.py" are auxilliary scripts providing some useful functions and supplementary tasks.
 
@@ -12,6 +12,7 @@ The src folder contains all the scripts that have been used for execution. Each 
 
  The sample executable folder contains some of the example execution commands used to run different experiment settings. 
 
+---
 <h3> Experiment Scenarios </h3>
 
 | Setting | Value | Meaning | Implementation in work | 
@@ -42,7 +43,7 @@ Structure of the task name argument:
 
 where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and takes value of "only" or "LOO" or not mentioned (all included). "c" is optional and takes the value of any one of the data source codes (mentioned above). If "b" takes a value, then "c" is required to inform the system to include/exclude a data source from training.
 
-
+---
 <h3> Example Execution </h3>
 
 <h5> Training Example</h5>
