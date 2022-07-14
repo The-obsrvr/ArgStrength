@@ -1,48 +1,31 @@
-<h1> Argument Quality </h1>
-
-
-<h2> Setup: </h2>
-
-`pip install -r requirements.txt`
-
-<h2> Tasks </h2>
-
-Keys (add these to the task name string to perform the respective objective/ the order does not matter):
-
-1. STLAS      : Single Task Learning Argument Strength
-2. MTLAS      : Multi Task Learning Argument Strength
-3. topic      : add topic information to the tokenization Setup
-4. source     : add source information to the tokenization Setup
-5. only_{}    : only use the mentioned {} dataset
-6. LOO_{}     : leave the mentioned {} dataset out.
-7. randomized : define the train-validate-test sets by the topic distribution. 
-
-**datasets**: "gretz", "toledo", "swanson", "ukp"
+<h1> Generalization in Diverse-Aware Argument Strength Models </h1>
+<h5> Master Thesis <br>
+Siddharth Bhargava </h5>
 
 ---
 
-<h4> 1. Single Task Single Dataset </h4>
+<h2> Brief Description </h2>
 
-**Task Name string**: "STLAS_only_{}" or "STLAS_only_{}_randomized" or "STLAS_only\_{}_topic_randomized" ...
+---
+<h2> Setup and Environment </h2>
 
-<h4> 2. Single Task Leave One Out Dataset </h4>
+Software and Tools:- 
+- OS: Ubuntu 20.04.4 LTS
+- GPUs: NVIDIA GeForce RTX 2080 Ti (4 units)
+- Python version: 3.8.5
+- MLflow Client: http://mlflow.dbs.ifi.lmu.de:5000/
+- PyCharm 2020 was used for the purpose of setting the environment, writing the scripts, debugging the code and deploying it onto the server.
 
-**Task Name string:** "STLAS_LOO_{}" or "STLAS_LOO_{}_randomized" ...
+All the required libraries and packages for setting up the environment can be installed using the following code:
 
-<h4> 3. Single Task All-in Dataset </h4>
+`pip install -r requirements.txt`
 
-**Task Name string**: "STLAS" or "STLAS_randomized" ...
+---
 
-<h4> 4. Multi Task Dataset </h4>
+<h2> Repository Setup </h2>
 
-**Task Name string**: "MTLAS" or "MTLAS_randomized" ...
+- <b>Hyper-parameter-optimization</b> directory contains executable code using Pytorch and ray tune. The Readme file in the directory holds instructions for execution of the code.
 
-<h4> 5. Multi Task Leave One Out Dataset </h4>
+- <b> pytorch-lightning </b> directory contains executable code using Pytorch Lightning setup. The Readme file in the directory holds instructions for execution of this code.
 
-**Task Name string**: "MTLAS_LOO_{}" or "MTLAS_LOO_{}_randomized" ...
-
-
-Note:
-For Task 4 and Task 5, we have further the options of different types of aggregation, for the logits obtained. We have the inference script defined for them.
-
-<h2> Execution </h2>
+- <b> raw-data </b> folder contains the data sets as downloaded from the respective sources. The initial data preparation and exploratory data analysis is presented in the jupyter notebook provided in the folder.
