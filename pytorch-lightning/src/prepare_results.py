@@ -1,3 +1,7 @@
+"""
+The script is used to generate LaTeX friendly table codes from the evaluation results. It performs the task of aggregating the values over the multiple runs and calculate the mean and standard deviation values for each experimental setup.
+"""
+
 import pandas as pd
 
 
@@ -46,11 +50,11 @@ def prepare_single_task(single_task_data: pd.DataFrame, sampling_strategy: str =
     #  combine the mean and std values for the pearson coefficients.
     if "gretz_pearson" in pearson_data.columns:
         pearson_data["IBMArgQ"] = [
-            "$\rho: " + str(pearson_data["gretz_pearson"][i]) + " \pm " + str(
+            "$r " + str(pearson_data["gretz_pearson"][i]) + " \pm " + str(
                 pearson_data["d_gretz_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["IBMArgQ"] = [
-            "$\sigma: " + str(spearman_data["gretz_spearman"][i]) + " \pm " + str(
+            "$\rho: " + str(spearman_data["gretz_spearman"][i]) + " \pm " + str(
                 spearman_data["d_gretz_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
@@ -59,11 +63,11 @@ def prepare_single_task(single_task_data: pd.DataFrame, sampling_strategy: str =
 
     if "toledo_pearson" in pearson_data.columns:
         pearson_data["IBMRank"] = [
-            "$\rho: " + str(pearson_data["toledo_pearson"][i]) + " \pm " + str(
+            "$r: " + str(pearson_data["toledo_pearson"][i]) + " \pm " + str(
                 pearson_data["d_toledo_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["IBMRank"] = [
-            "$\sigma: " + str(spearman_data["toledo_spearman"][i]) + " \pm " + str(
+            "$\rho: " + str(spearman_data["toledo_spearman"][i]) + " \pm " + str(
                 spearman_data["d_toledo_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
@@ -72,11 +76,11 @@ def prepare_single_task(single_task_data: pd.DataFrame, sampling_strategy: str =
 
     if "ukp_pearson" in pearson_data.columns:
         pearson_data["UKPConvArgRank"] = [
-            "$\rho: " + str(pearson_data["ukp_pearson"][i]) + " \pm " + str(
+            "$r: " + str(pearson_data["ukp_pearson"][i]) + " \pm " + str(
                 pearson_data["d_ukp_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["UKPConvArgRank"] = [
-            "$\sigma: " + str(spearman_data["ukp_spearman"][i]) + " \pm " + str(
+            "$\rho: " + str(spearman_data["ukp_spearman"][i]) + " \pm " + str(
                 spearman_data["d_ukp_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
@@ -85,11 +89,11 @@ def prepare_single_task(single_task_data: pd.DataFrame, sampling_strategy: str =
 
     if "swanson_pearson" in pearson_data.columns:
         pearson_data["SwanRank"] = [
-            "$\rho: " + str(pearson_data["swanson_pearson"][i]) + " \pm " + str(
+            "$r: " + str(pearson_data["swanson_pearson"][i]) + " \pm " + str(
                 pearson_data["d_swanson_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["SwanRank"] = [
-            "$\sigma: " + str(spearman_data["swanson_spearman"][i]) + " \pm " + str(
+            "$\rho: " + str(spearman_data["swanson_spearman"][i]) + " \pm " + str(
                 spearman_data["d_swanson_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
@@ -98,11 +102,11 @@ def prepare_single_task(single_task_data: pd.DataFrame, sampling_strategy: str =
 
     if "webis_pearson" in pearson_data.columns:
         pearson_data["Webis"] = [
-            "$\rho: " + str(pearson_data["webis_pearson"][i]) + " \pm " + str(
+            "$r: " + str(pearson_data["webis_pearson"][i]) + " \pm " + str(
                 pearson_data["d_webis_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["Webis"] = [
-            "$\sigma: " + str(spearman_data["webis_spearman"][i]) + " \pm " + str(
+            "$\rho: " + str(spearman_data["webis_spearman"][i]) + " \pm " + str(
                 spearman_data["d_webis_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
@@ -239,11 +243,11 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
         #  combine the mean and std values for the pearson coefficients.
         if "gretz_pearson" in pearson_data.columns:
             pearson_data["IBMArgQ"] = [
-                "$\rho: " + str(pearson_data["gretz_pearson"][i]) + " \pm " + str(
+                "$r: " + str(pearson_data["gretz_pearson"][i]) + " \pm " + str(
                     pearson_data["d_gretz_pearson"][i]) + "$"
                 for i in range(len(pearson_data))]
             spearman_data["IBMArgQ"] = [
-                "$\sigma: " + str(spearman_data["gretz_spearman"][i]) + " \pm " + str(
+                "$\rho: " + str(spearman_data["gretz_spearman"][i]) + " \pm " + str(
                     spearman_data["d_gretz_spearman"][i]) + "$"
                 for i in range(len(spearman_data))]
         else:
@@ -252,11 +256,11 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
         if "toledo_pearson" in pearson_data.columns:
             pearson_data["IBMRank"] = [
-                "$\rho: " + str(pearson_data["toledo_pearson"][i]) + " \pm " + str(
+                "$r: " + str(pearson_data["toledo_pearson"][i]) + " \pm " + str(
                     pearson_data["d_toledo_pearson"][i]) + "$"
                 for i in range(len(pearson_data))]
             spearman_data["IBMRank"] = [
-                "$\sigma: " + str(spearman_data["toledo_spearman"][i]) + " \pm " + str(
+                "$\rho: " + str(spearman_data["toledo_spearman"][i]) + " \pm " + str(
                     spearman_data["d_toledo_spearman"][i]) + "$"
                 for i in range(len(spearman_data))]
         else:
@@ -265,10 +269,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
         if "ukp_pearson" in pearson_data.columns:
             pearson_data["UKPConvArgRank"] = [
-                "$\rho: " + str(pearson_data["ukp_pearson"][i]) + " \pm " + str(pearson_data["d_ukp_pearson"][i]) + "$"
+                "$r: " + str(pearson_data["ukp_pearson"][i]) + " \pm " + str(pearson_data["d_ukp_pearson"][i]) + "$"
                 for i in range(len(pearson_data))]
             spearman_data["UKPConvArgRank"] = [
-                "$\sigma: " + str(spearman_data["ukp_spearman"][i]) + " \pm " + str(
+                "$\rho: " + str(spearman_data["ukp_spearman"][i]) + " \pm " + str(
                     spearman_data["d_ukp_spearman"][i]) + "$"
                 for i in range(len(spearman_data))]
         else:
@@ -277,11 +281,11 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
         if "swanson_pearson" in pearson_data.columns:
             pearson_data["SwanRank"] = [
-                "$\rho: " + str(pearson_data["swanson_pearson"][i]) + " \pm " + str(
+                "$r: " + str(pearson_data["swanson_pearson"][i]) + " \pm " + str(
                     pearson_data["d_swanson_pearson"][i]) + "$"
                 for i in range(len(pearson_data))]
             spearman_data["SwanRank"] = [
-                "$\sigma: " + str(spearman_data["swanson_spearman"][i]) + " \pm " + str(
+                "$\rho: " + str(spearman_data["swanson_spearman"][i]) + " \pm " + str(
                     spearman_data["d_swanson_spearman"][i]) + "$"
                 for i in range(len(spearman_data))]
         else:
@@ -290,11 +294,11 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
         if "webis_pearson" in pearson_data.columns:
             pearson_data["Webis"] = [
-                "$\rho: " + str(pearson_data["webis_pearson"][i]) + " \pm " + str(
+                "$r: " + str(pearson_data["webis_pearson"][i]) + " \pm " + str(
                     pearson_data["d_webis_pearson"][i]) + "$"
                 for i in range(len(pearson_data))]
             spearman_data["Webis"] = [
-                "$\sigma: " + str(spearman_data["webis_spearman"][i]) + " \pm " + str(
+                "$\rho: " + str(spearman_data["webis_spearman"][i]) + " \pm " + str(
                     spearman_data["d_webis_spearman"][i]) + "$"
                 for i in range(len(spearman_data))]
         else:
@@ -327,10 +331,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
     # separate out pearson and spearman and rewrite
     if "gretz_pearson" in pearson_data.columns:
         pearson_data["IBMArgQ"] = [
-            "$\rho: " + str(pearson_data["gretz_pearson"][i]) + "$"
+            "$r: " + str(pearson_data["gretz_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["IBMArgQ"] = [
-            "$\sigma: " + str(spearman_data["gretz_spearman"][i]) + "$"
+            "$\rho: " + str(spearman_data["gretz_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
         pearson_data["IBMArgQ"] = "-"
@@ -338,10 +342,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
     if "toledo_pearson" in pearson_data.columns:
         pearson_data["IBMRank"] = [
-            "$\rho: " + str(pearson_data["toledo_pearson"][i]) + "$"
+            "$r: " + str(pearson_data["toledo_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["IBMRank"] = [
-            "$\sigma: " + str(spearman_data["toledo_spearman"][i]) + "$"
+            "$\rho: " + str(spearman_data["toledo_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
         pearson_data["IBMRank"] = "-"
@@ -349,10 +353,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
     if "ukp_pearson" in pearson_data.columns:
         pearson_data["UKPConvArgRank"] = [
-            "$\rho: " + str(pearson_data["ukp_pearson"][i]) + "$"
+            "$r: " + str(pearson_data["ukp_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["UKPConvArgRank"] = [
-            "$\sigma: " + str(spearman_data["ukp_spearman"][i]) + "$"
+            "$\rho: " + str(spearman_data["ukp_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
         pearson_data["UKPConvArgRank"] = "-"
@@ -360,10 +364,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
     if "swanson_pearson" in pearson_data.columns:
         pearson_data["SwanRank"] = [
-            "$\rho: " + str(pearson_data["swanson_pearson"][i]) + "$"
+            "$r: " + str(pearson_data["swanson_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["SwanRank"] = [
-            "$\sigma: " + str(spearman_data["swanson_spearman"][i]) + "$"
+            "$\rho: " + str(spearman_data["swanson_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
         pearson_data["SwanRank"] = "-"
@@ -371,10 +375,10 @@ def prepare_multi_task(multi_task_data: list, inference_data: pd.DataFrame, samp
 
     if "webis_pearson" in pearson_data.columns:
         pearson_data["Webis"] = [
-            "$\rho: " + str(pearson_data["webis_pearson"][i]) + "$"
+            "$r: " + str(pearson_data["webis_pearson"][i]) + "$"
             for i in range(len(pearson_data))]
         spearman_data["Webis"] = [
-            "$\sigma: " + str(spearman_data["webis_spearman"][i]) + "$"
+            "$\rho: " + str(spearman_data["webis_spearman"][i]) + "$"
             for i in range(len(spearman_data))]
     else:
         pearson_data["Webis"] = "-"
@@ -487,4 +491,4 @@ if __name__ == "__main__":
                                  mtlas_loo_swanson, mtlas_loo_ukp, mtlas_loo_webis]
         prepare_multi_task(multi_task_data=multi_tasks_data_list,
                            inference_data=inference_results, sampling_strategy="balanced")
-        # need to adjust to register longtable instead.
+# the tables would still require reformatting in LaTeX as they are quite big in size.

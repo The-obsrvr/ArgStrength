@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+This file defines the dataset class and functions that load in the data files and prepares the data as per the chosen sampling strategy, topic information inclusion, task and the model training/validation/test/predict job. 
+"""
 
+# system imports
 import os
 import glob
 import random
@@ -12,12 +16,13 @@ import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
 
+# local imports
 from utils import generate_task_list
 
 
 class ArgTokenizer:
     """
-
+    Class definition for the Tokenizer. Helps define any custom function with regard to the tokenization step. 
     """
     def __init__(self, pretrained_model):
         self.tokenizer = BertTokenizer.from_pretrained(pretrained_model)
@@ -27,10 +32,10 @@ class ArgTokenizer:
                      sentence_pair: str = None,
                      max_length: int = 128) -> (torch.tensor, torch.tensor):
         """
-        :param sentence:
-        :param max_length:
-        :param sentence_pair:
-        :return:
+        :param sentence: text to tokenize
+        :param max_length: max sequence length to define the embedding size for the encoder model.
+        :param sentence_pair: second text input (topic info in this case) to tokenize
+        :return: tokenizer output
         """
         tokenizer_output = self.tokenizer.encode_plus(
             text=sentence,
@@ -48,7 +53,7 @@ class ArgTokenizer:
 
 class ArgumentDataset(Dataset):
     """
-
+    Class definition for defining the argument data to be loaded into the model. Accepts the user-defined hyperparameters to define the data to be used for training/validation/testing/prediction.
     """
 
     def __init__(self,
@@ -63,9 +68,14 @@ class ArgumentDataset(Dataset):
                  ):
         """
 
-        :param hparams:
+        :param hparams: hyperparameters used to define the data set such as the sampling strategy/topic information inclusion, etc.
         :param mode: train/dev/test/predict set to produce
-        :param tokenizer:
+        :param tokenizer: Tokenizer to be used.
+        :param data_folder: [Optional] path to the data folder containing the data files. Default: None
+        :param source_known: [Optional] informs the Class if the data source of argument is known or not known (in case of inference)
+        :param prepare_target: [Optional] informs the Class object whether target needs to be prepared (training/validation/testing) or not. 
+        :param return_weights: [Optional] informs the Class object whether to define and output the weights by data source (required for weighted loss method)
+        :return_files: [Optional] informs the Class object whether to define and return the data files (required for inference).
         """
         super().__init__()
 
@@ -88,7 +98,7 @@ class ArgumentDataset(Dataset):
 
     def _get_file_names(self):
         """
-
+        Returns the file names from the data folder. Required for inference step.
         :return:
         """
         datasets = glob.glob(self.data_folder)
@@ -187,7 +197,7 @@ class ArgumentDataset(Dataset):
     def _split_by_cross_topic(self, data_df) -> pd.DataFrame:
         """
             Splits the datasets into the train-dev-test single set based on the sampling strategy " CROSS-TOPIC "
-            :return:
+            :return: pandas dataframe
             """
         ds_topic_list = data_df["topic"].unique()
         random.Random(self.hparams.run_seed).shuffle(ds_topic_list)
@@ -211,7 +221,7 @@ class ArgumentDataset(Dataset):
         """
         Splits the dataset based on the sampling strategy " Equal Representation "
         :param data_df:
-        :return:
+        :return: pandas dataframe
         """
         if data_df["dataset"].str.contains(smallest_dataset_name).any():
             #  no filtering required for smallest dataset. Read as is.
@@ -254,7 +264,7 @@ class ArgumentDataset(Dataset):
     @staticmethod
     def _find_smallest_set(data_sets: list):
         """
-
+        Function for finding the smallest data set. Required for the sampling strategy "Balanced".
         :param data_sets:
         :return:
         """
@@ -268,6 +278,7 @@ class ArgumentDataset(Dataset):
 
     def _get_weights_by_datasets(self) -> dict:
         """
+        Defining the weights for each data source used for training. Required for "weighted" loss method.
 
         :return:
         """
@@ -299,6 +310,7 @@ class ArgumentDataset(Dataset):
         else:
             data_set = data_row.dataset
 
+        # decide whether to use topic information or not based on experiment.
         topic = data_row.topic
         if "source" in self.hparams.task_name:
             text_b = data_set
