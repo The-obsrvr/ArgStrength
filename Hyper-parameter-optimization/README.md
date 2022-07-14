@@ -19,9 +19,9 @@ The src folder contains all the scripts that have been used. Each file contains 
 || Leave one out | Exclude the specified data source for training | Specify "LOO_" in '--task_name' argument |
 || All data sources | use all data sources | By default 'STLAS' and 'MTLAS' alone in --task_name' argument triggers this setting |
 | include topic information | include topic | provide topic information as well to the encoder module | include "topic" in "task_name" argument |
-|Aggregation Method (for inference)| mean| take mean of all logit values from the multiple seed runs to get the final logit value | Specify "mean" in '--aggregation_method' argument |
-|| variance | use the score value of the minimum variance regression unit | Specify "var" in '--aggregation_method' argument |
-|| weighted variance | use the score value of the minimum weighted variance regression unit | Specify "wt-var" in '--aggregation_method' argument |
+|Aggregation Method (for inference)| mean| take mean of all logit values from the multiple seed runs to get the final logit value | Specify "mean" in 'task_name' argument |
+|| variance | use the score value of the minimum variance regression unit | Specify "var" in 'task_name' argument |
+|| weighted variance | use the score value of the minimum weighted variance regression unit | Specify "wt-var" in 'task_name' argument |
 
 Data Source Codes used in the code:
 
@@ -31,9 +31,9 @@ Data Source Codes used in the code:
 - SwanRank : "swanson"
 
 Structure of the task name argument:
-{a}\_{b}\_{c}\_{d}
+{a}\_{b}\_{c}\_{d}\_{e}
 
-where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and takes value of "only" or "LOO" or not mentioned (all included). "c" is optional and takes the value of any one of the data source codes (mentioned above). If "b" takes a value, then "c" is required to inform the system to include/exclude a data source from training. "d" takes the value of "topic" or "source". 
+where "a" is required and takes value of "STLAS" or"MTLAS". "b" is optional and takes value of "only" or "LOO" or not mentioned (all included). "c" is optional and takes the value of any one of the data source codes (mentioned above). If "b" takes a value, then "c" is required to inform the system to include/exclude a data source from training. "d" is Optional and takes the value of "topic" or "source". "e" is required if doing inference, and takes the value of "mean", "var", or "wt-var".  
 
 ---
 <h3> Execution </h3>
