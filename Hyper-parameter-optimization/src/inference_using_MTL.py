@@ -1,3 +1,6 @@
+"""
+script for performing inference for the multi-task learning setup.
+"""
 from __future__ import absolute_import, division, print_function
 
 # Local Imports
@@ -17,13 +20,16 @@ import torch
 from transformers import BertConfig
 
 if __name__ == '__main__':
-    # load the best trained model and config
 
+    #  load the config of the trained, optimized model.
     config_file = open("/mnt/data2/Sid/arg_quality/pytorch/task4_hpo/best_model_details_MTLAS_LOO_swanson_v2_bb.json", )
     config_data = json.load(config_file)
 
+    #  load the data
     train_dataset, eval_dataset, inference_dataset, task_dict = get_datasets(config_data)
     print(task_dict)
+
+    # load bert config file.
     bert_config = BertConfig.from_pretrained(
         config_data["bert_arch"],
         finetuning_task=config_data["task_name"],
@@ -39,11 +45,13 @@ if __name__ == '__main__':
                             if torch.cuda.is_available()
                             else 'cpu')
     )
+    # load the model
     with open(os.path.join(config_data["best_checkpoint_path"], "best_model.pt"), 'rb') as checkpt:
         model_state, _ = torch.load(checkpt)
     optimised_bert_model.load_state_dict(model_state)
     # print(optimised_bert_model)
 
+    # load the arguments as defined in the config file. 
     inference_args = TrainingArguments(
         learning_rate=config_data["learning_rate"],
         train_model=True,
@@ -56,6 +64,7 @@ if __name__ == '__main__':
         weighted_dataset_loss=config_data["dataset_loss_method"]
     )
 
+    # initialize the Trainer object
     inference_runner = ArgStrTrainer(
         optimised_bert_model,
         inference_args,
@@ -64,6 +73,7 @@ if __name__ == '__main__':
         task_name=config_data["task_name"]
     )
 
+    # perform the inference 
     inference_runner.infer_model(infer_dataset=inference_dataset,
                                  device=torch.device('cuda'
                                                      if torch.cuda.is_available()

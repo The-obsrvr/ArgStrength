@@ -1,3 +1,6 @@
+"""
+contains functions for training, validation, testing and prediction. Includes MLflow logging and ray tune integration.
+"""
 from __future__ import absolute_import, division, print_function
 
 # Local Imports

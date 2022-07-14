@@ -1,3 +1,7 @@
+"""
+contains the class definition for argument strength model with forward function and forward function for inference. 
+"""
+
 # Local Imports
 from utils import BertBatchInput, BertSingleDatasetOutput, BertBatchOutput
 # Standard Imports
