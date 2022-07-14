@@ -47,6 +47,7 @@ Here is a sample execution command to run a particular experiment setting.
 The config values for the different hyperparameters have been defined within the code. 
 
 <h5> For training a model using a optimal config file </h5>
+
 `python retraining.py`
 
 The path to the config file is defined within the code script.
