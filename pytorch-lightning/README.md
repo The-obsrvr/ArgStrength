@@ -1,16 +1,36 @@
 <h1> Pytorch Ligthning </h1>
 
+<h3> Directory Structure </h3>
 
-<h2> Tasks </h2>
+In the Data folder, the five data sets are available These have been pre-processed and structured uniformly as mentioned in the data-prep notebook found in the raw-data directory in the home page. 
 
-Keys (add these to the task name string to perform the respective objective/ the order does not matter):
+The src folder contains all the scripts that have been used for execution. Each script has been provided with useful comments and explanation to help improve understanding of each function and logic. The "datasets.py" contains information about the dataset class. This involves loading the data files as per the experiment setting, preparing the data, tokenizing it and compiling the training/validation/testing data sets to be loadable into the model. The "regressor.py" defines the model class as per the lightningmodule class. It includes defining the structure of the model (encoder unit and the regression unit), defining the training, validation, testing, performance calculation and inference steps based on the hyperparameter setting as set. The "training.py" script is used to define the training of the model as per the pytorch lightning setting. This includes the logging of parameters and metrics on MLflow, Early Stopping, checkpointing, ray tune based optimization, etc. Apart from this, the script can also be used to perform the task of testing for a given model. The "inference.py" script does the task of prediction for the given data file(s). The "utils.py" and "prepare_results.py" are auxilliary scripts providing some useful functions and supplementary tasks.
 
-1. STLAS      : Single Task Learning Argument Strength
-2. MTLAS      : Multi Task Learning Argument Strength
-3. topic      : add topic information to the tokenization Setup
-4. source     : add source information to the tokenization Setup
-5. only_{}    : only use the mentioned {} dataset
-6. LOO_{}     : leave the mentioned {} dataset out.
-7. randomized : define the train-validate-test sets by the topic distribution. 
+ Training specific arguments can be found listed in the training.py script (for training and testing) while inference specific arguments can be found listed in the inference.py script. Model specfic arguments can be found in the regressor.py script. For training, the hyperparameter arguments or the optimal model, obtained from the optimization experiments, have been pre-defined into the script.
 
-**datasets**: "gretz", "toledo", "swanson", "ukp"
+ The results folder contains the results that had been obtained through the execution of the different experiments. The evaluation_results.csv  particular is fed to the prepare_results.py script to generate the final results in pandas and LaTeX format. 
+
+ The sample executable folder contains some of the example execution commands used to run different experiment settings. 
+
+<h3> Experiment Scenarios </h3>
+
+| Setting | Value | Meaning | Implementation in work | 
+|-------|-------- | ------- | ------- |
+| Learning Level | Single Task | use single task learning | Specify "STLAS" in '--task_name' argument |
+|| Multi Task | use multi-task learning | Specify "MTLAS" in '--task_name' argument |
+| Sampling Strategy | in topic | use data from all topics for training, validation and testing | Specify "in-topic" in '--sampling_strategy' argument |
+|| cross topic | randomly exclude a single topic from each dataset , for training and validation and use for testing | Specify "cross-topic" in '--sampling_strategy' argument |
+|| balanced | select equal number of samples from each topic, keeping the size of each data set equal | Specify "balanced" in '--sampling_strategy' argument |
+| Data Source Selection | single dataset | Only use the specified data source for training (applicable only for single task learning) | Specify "only_" in '--task_name' argument |
+|| Leave one out | Exclude the specified data source for training | Specify "LOO_" in '--task_name' argument |
+|| All data sources | use all data sources | By default 'STLAS' and 'MTLAS' in --task_name' argument triggers this setting |
+| include topic information | include topic | provide topic information as well to the encoder module | use '--use_topic' argument |
+|Aggregation Method (for inference)| mean| take mean of all logit values from the multiple seed runs to get the final logit value | Specify "mean" in '--aggregation_method' argument |
+|| variance | use the score value of the minimum variance regression unit | Specify "var" in '--aggregation_method' argument |
+|| weighted variance | use the score value of the minimum weighted variance regression unit | Specify "wt-var" in '--aggregation_method' argument |
+
+<h3> Example Execution </h3>
+
+
+
+   
