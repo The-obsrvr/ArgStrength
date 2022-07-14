@@ -103,7 +103,7 @@ class TrainingArguments:
         metadata={"help": "Set step number at which checkpoint has to be saved."}
     )
     weighted_dataset_loss: str = field(
-        default="equal", metadata={"help": "Choose between three possible weighted loss based on data set: unweighted,"
+        default="unweighted", metadata={"help": "Choose between three possible weighted loss based on data set: unweighted,"
                                            " equal, weighted."}
     )
     train_batch_size: int = field(

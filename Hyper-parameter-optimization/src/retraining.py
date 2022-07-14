@@ -1,7 +1,3 @@
-"""
-script to train models using the config file containing the optimal hyperparameters.
-"""
-
 from __future__ import absolute_import, division, print_function
 
 # Local Imports
@@ -25,12 +21,13 @@ from transformers import BertConfig
 if __name__ == '__main__':
     # load the best trained model and config
     config_available = False
-
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
     # define the experiment parameters
     bert_arch = "bert-base-uncased"
-    task_name = "STLAS_only_toledo_randomized"
-    exp_name = task_name + "_v2_bb"
-    mlflow_exp_name = "ASL_randomized"
+    task_name = "STLAS_randomized_LOO_gretz_topic"
+    exp_name = task_name + "_v1_bb"
+    mlflow_exp_name = "ASL_randomized_v2"
+    NUM_OF_SEEDS = 5
 
     # define the path from where the task data is loaded from.
     task_data_dir = "/mnt/data2/Sid/arg_quality/pytorch/task4_hpo/data/*.csv"
@@ -63,11 +60,11 @@ if __name__ == '__main__':
             "dropout_prob": 0.1,
             "bert_hidden_layers": 4,
             "nn_config": 1,
-            "dataset_loss_method": "weighted",
+            "dataset_loss_method": "unweighted",
 
             "learning_rate": 4.8672041684500765e-06,
             "weight_decay": 0.1936871758204528,
-            "num_epochs": 20,
+            "num_epochs": 50,
             "max_steps": -1,  # We use num_epochs instead.
 
             "mlflow": {
@@ -78,13 +75,14 @@ if __name__ == '__main__':
 
     if mlflow.get_experiment_by_name(mlflow_exp_name) is None:
         mlflow.create_experiment(mlflow_exp_name)
-    mlflow.set_tracking_uri("http://mlflow.dbs.ifi.lmu.de:5000")
     mlflow.set_experiment(experiment_name=mlflow_exp_name)
+    mlflow.set_tracking_uri("http://mlflow.dbs.ifi.lmu.de:5000")
+
     # define 10 seeds to run for training
-    seed_list = random.sample(range(0, 10000), 10)
+    seed_list = random.sample(range(0, 10000), NUM_OF_SEEDS)
     for seed_value in seed_list:
         set_seed(seed_value)
-        with mlflow.start_run():
+        with mlflow.start_run(run_name="asl_randomized_v1"):
             mlflow.log_param("seed", seed_value)
             mlflow.log_param("Task Name", task_name)
             print("Seed:", seed_value)
@@ -129,7 +127,7 @@ if __name__ == '__main__':
                 train_model=True,
                 evaluate_during_training=True,
                 save_steps=0,
-                max_num_train_epochs=20,
+                max_num_train_epochs=25,
                 train_batch_size=config_data["train_batch_size"],
                 eval_batch_size=config_data["eval_batch_size"],
                 weight_decay=config_data["weight_decay"],
@@ -151,4 +149,11 @@ if __name__ == '__main__':
                                        retraining=True,
                                        seed_value=seed_value)
 
-        mlflow.end_run()
+            if "MTLAS" in task_name:
+                retrain_runner.infer_model(
+                    infer_dataset=test_dataset,
+                    device=config_data["device"],
+                    exp_name=config_data["exp_name"],
+                    task_dict=task_dict,
+                    exp_seed=seed_value,
+                )

@@ -1,7 +1,3 @@
-"""
-contains functions that runs the ray tune hyperparameter optimization.
-"""
-
 # Local Imports
 from modeling import ArgStrModel
 from training import ArgStrTrainer
@@ -268,3 +264,6 @@ if __name__ == '__main__':
 
     with open(best_model_path_name, 'w') as f:
         f.write(json.dumps(best_config, default=lambda x: '<not serializable>'))
+
+
+# :TODO: 5. correct distributed computing

@@ -1,6 +1,3 @@
-"""
-contains functions for training, validation, testing and prediction. Includes MLflow logging and ray tune integration.
-"""
 from __future__ import absolute_import, division, print_function
 
 # Local Imports
@@ -10,8 +7,12 @@ from arguments import TrainingArguments
 # Standard Imports
 import os
 import random
+import ast
+import json
 from collections import defaultdict
 from typing import Tuple, List
+from statistics import mean, stdev
+from scipy.stats import pearsonr, spearmanr
 
 # Third Party Imports
 import numpy as np
@@ -119,6 +120,9 @@ class ArgStrTrainer(Trainer):
         else:
             self.data_collator = DataCollator()
         self.task_name = task_name
+        # for inference
+        self.infer_df = pd.DataFrame()
+        self.final_logits = []
 
     def get_dataloader(self, data_set, is_train: bool = False, set_batch_size: int = None) -> DataLoader:
         """
@@ -170,8 +174,11 @@ class ArgStrTrainer(Trainer):
 
         self.dataset_weights = dataset_weights
 
-    def _evaluate_model(self, device: torch.device, batch_dataloader: DataLoader, mode: str,
-                        epoch: int, mlflow_logging: bool = True) -> Tuple:
+    def _evaluate_model(self, device: torch.device,
+                        batch_dataloader: DataLoader,
+                        mode: str,
+                        epoch: int,
+                        mlflow_logging: bool = True) -> Tuple:
         """
 
         :param device:
@@ -273,7 +280,7 @@ class ArgStrTrainer(Trainer):
                     mlflow.log_metric("avg_swanson_val_loss", avg_swanson_eval_loss.item(), epoch)
                     mlflow.log_metric("avg_ukprank_val_loss", avg_ukprank_eval_loss.item(), epoch)
                 elif "_LOO_gretz" in self.task_name:
-                    mlflow.log_metric("avg_toledo_val_loss", avg_gretz_eval_loss.item(), epoch)
+                    mlflow.log_metric("avg_toledo_val_loss", avg_toledo_eval_loss.item(), epoch)
                     mlflow.log_metric("avg_swanson_val_loss", avg_swanson_eval_loss.item(), epoch)
                     mlflow.log_metric("avg_ukprank_val_loss", avg_ukprank_eval_loss.item(), epoch)
                 elif "_LOO_swanson" in self.task_name:
@@ -290,7 +297,7 @@ class ArgStrTrainer(Trainer):
                     mlflow.log_metric("avg_toledo_val_loss", avg_toledo_eval_loss.item(), epoch)
                 elif "only_swanson" in self.task_name:
                     mlflow.log_metric("avg_swanson_val_loss", avg_swanson_eval_loss.item(), epoch)
-                elif "only_toledo" in self.task_name:
+                elif "only_ukp" in self.task_name:
                     mlflow.log_metric("avg_ukprank_val_loss", avg_ukprank_eval_loss.item(), epoch)
                 else:
                     mlflow.log_metric("avg_gretz_val_loss", avg_gretz_eval_loss.item(), epoch)
@@ -320,11 +327,13 @@ class ArgStrTrainer(Trainer):
                     mlflow.log_metric("ukp pearson", ukp_pearson.item(), epoch)
                     mlflow.log_metric("ukp spearman", ukp_spearman.item(), epoch)
 
-            return gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson
+            return avg_eval_loss, gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson
 
-    def train_model(self, device: torch.device, optimizer_state=None,
+    def train_model(self, device: torch.device,
+                    optimizer_state=None,
                     mlflow_logging: bool = True,
-                    retraining: bool = False, seed_value: int = 3):
+                    retraining: bool = False,
+                    seed_value: int = 3):
         """
         Main data training method. We use a pre-trained BERT model with a single linear classification layer on top.
         Uses early stopping and returns the best model trained. (Maximum number of epochs prevents infinite runtime).
@@ -345,7 +354,7 @@ class ArgStrTrainer(Trainer):
         if retraining:
             save_model = False
             tune_report = False
-            eval_path = "./randomized_results/randomized_results.csv"
+            eval_path = "./randomized_results/randomized_results2.csv"
 
         # Get the data loaders
         train_dataloader = self.get_dataloader(self.train_dataset, is_train=True)
@@ -411,13 +420,12 @@ class ArgStrTrainer(Trainer):
 
                 # Calculate the weighted loss based on the result
                 weighted_loss = bert_batch_output.calculate_weighted_loss(self.dataset_weights)
+                # Perform a backward pass to calculate the gradients.
+                weighted_loss.backward()
 
                 # Accumulate the training loss over all of the batches so that we can
                 # calculate the average loss at the end.
                 total_train_loss += weighted_loss.item()
-
-                # Perform a backward pass to calculate the gradients.
-                weighted_loss.backward()
 
                 # Accumulate training loss for each dataset.
                 for bert_single_dataset_output in bert_batch_output.bert_single_dataset_outputs:
@@ -450,7 +458,7 @@ class ArgStrTrainer(Trainer):
                                              epoch=epoch, mlflow_logging=mlflow_logging)
 
                     # Calculate the average test metrics
-                    gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson = \
+                    avg_test_loss, gretz_pearson, toledo_pearson, swanson_pearson, ukp_pearson = \
                         self._evaluate_model(device, test_dataloader, mode="test",
                                              epoch=epoch, mlflow_logging=mlflow_logging)
 
@@ -572,9 +580,125 @@ class ArgStrTrainer(Trainer):
         if type(m) == nn.Dropout:
             m.train()
 
-    def infer_model(self, infer_dataset, device: torch.device, task_dict: List = None, exp_name: str = "abc"):
+    def _aggregate_inference_logits(self, agg_method: str = "mean"):
         """
 
+        :param agg_method: aggregation method: mean, max, var and wt-var
+        :return:
+        """
+        self.final_logits = []
+        logits_mean_set = []
+        logits_var_set = []
+        # loop over each dataset column
+        for col_name in self.infer_df.columns[2:]:
+            data_set_logits = []
+            # loop over each seed entry
+            for i in range(len(self.infer_df)):
+                # convert the string column to a list
+                dataset_logits = ast.literal_eval(self.infer_df[col_name][i])
+                data_set_logits.append(dataset_logits)
+
+            data_set_mean_logits = list(map(mean, zip(*data_set_logits)))
+            data_set_mean_logits = list(map(
+                lambda x: round(x, ndigits=6), data_set_mean_logits))
+            logits_mean_set.append(data_set_mean_logits)
+
+            # for var method:
+            if "var" in agg_method:
+                data_set_var_logits = list(map(stdev, zip(*data_set_logits)))
+                data_set_var_logits = list(map(
+                    lambda x: round(x, ndigits=6), data_set_var_logits))
+                logits_var_set.append(data_set_var_logits)
+
+        logits_means_df = pd.DataFrame(np.array(logits_mean_set).T, columns=self.infer_df.columns[2:])
+        logits_vars_df = pd.DataFrame(np.array(logits_var_set).T, columns=self.infer_df.columns[2:])\
+            if "var" in agg_method else pd.DataFrame()
+
+        # for mean method:
+        if agg_method == "mean":
+            self.final_logits = logits_means_df.mean(axis=1)
+
+        # for var method
+        elif agg_method == "var":
+            self.final_logits = [logits_means_df[col_name][i] for i, col_name in
+                                 enumerate(logits_vars_df.idxmin(axis=1))]
+
+        # for weighted var method
+        elif agg_method == "wt-var":
+            logits_wtvars_df = pd.DataFrame()
+            # generate weights from the variance values
+            final_sum = []
+            for i in range(len(logits_vars_df)):
+                summed_row = 0
+                for col in logits_vars_df:
+                    summed_row += 1 / logits_vars_df[col][i]
+                final_sum.append(summed_row)
+            for col in logits_vars_df.columns:
+                logits_wtvars_df[col] = [(1 / logits_vars_df[col][i]) /
+                                         final_sum[i] for i in range(len(logits_vars_df))]
+            # multiply the weights with the mean values and sum
+            for i in range(len(logits_wtvars_df)):
+                sum_logits = 0
+                for col in logits_wtvars_df.columns:
+                    sum_logits += logits_wtvars_df[col][i] * logits_means_df[col][i]
+                self.final_logits.append(sum_logits)
+
+        # for max method:
+        else:
+            self.final_logits = logits_means_df.max(axis=1)
+
+    def _cal_eval_metrics(self, agg_method: str = "mean"):
+        """
+        :param agg_method: aggregation method: mean, max, var and wt-var
+        :return: inference_metrics dict
+        """
+
+        datasets = ast.literal_eval(self.infer_df["orig_ds"][0])
+        labels = ast.literal_eval(self.infer_df["labels"][0])
+        labels = list(map(lambda x: round(x, ndigits=6), labels))
+
+        assert len(datasets) == len(labels)
+        assert len(self.final_logits) == len(labels)
+
+        inference_metrics = {}
+
+        unlabeled_pearson = round(pearsonr(self.final_logits, labels)[0], 4)
+        unlabeled_spearman = round(spearmanr(labels, self.final_logits)[0], 4)
+        key_pearson = agg_method + "_unknown_pearson"
+        key_spearman = agg_method + "_unknown_spearman"
+        inference_metrics[key_pearson] = unlabeled_pearson
+        inference_metrics[key_spearman] = unlabeled_spearman
+
+        # group values by the datasets to help calculate the pearson values by dataset.
+        data2 = pd.DataFrame(np.column_stack([datasets, labels, self.final_logits]),
+                             columns=["datasets", "labels", "logits"])
+        grouped_dataset_df = data2.groupby(['datasets'])
+
+        # loop over each dataset
+        for data_set in list(grouped_dataset_df.groups.keys()):
+            data_gp = grouped_dataset_df.get_group(data_set)
+            logits = [float(i) for i in data_gp["logits"]]
+            labels = [float(i) for i in data_gp["labels"]]
+            pearson_value = round(pearsonr(logits, labels)[0], ndigits=4)
+            spearman_value = round(spearmanr(logits, labels)[0], ndigits=4)
+            key_pearson = agg_method + "_" + data_set + "_pearson"
+            key_spearman = agg_method + "_" + data_set + "_spearman"
+            inference_metrics[key_pearson] = pearson_value
+            inference_metrics[key_spearman] = spearman_value
+
+        return inference_metrics
+
+    def infer_model(self, infer_dataset,
+                    device: torch.device,
+                    task_dict: List = None,
+                    exp_name: str = "abc",
+                    exp_seed: int = 0,
+                    save_logits: bool = True,
+                    ):
+        """
+
+        :param save_logits:
+        :param exp_seed:
         :param task_dict:
         :param exp_name:
         :param infer_dataset:
@@ -582,6 +706,15 @@ class ArgStrTrainer(Trainer):
         :returns:
             Argument strength values for the given data
         """
+
+        if "mean" in self.task_name:
+            aggregation_method = "mean"
+        elif "var" in self.task_name:
+            aggregation_method = "var"
+        elif "wt-var" in self.task_name:
+            aggregation_method = "wt-var"
+        else:
+            aggregation_method = "all"
 
         # get the dataloader
         infer_dataloader = self.get_dataloader(infer_dataset)
@@ -598,7 +731,7 @@ class ArgStrTrainer(Trainer):
         print("Starting Inference")
 
         for i in range(10):
-
+            # reset inference seed values for the dropout.
             set_seed(random.randint(0, 10000))
 
             # Tracking variables
@@ -624,13 +757,8 @@ class ArgStrTrainer(Trainer):
                     for idx in range(len(dataset[1][0])):
                         dataset_list.append(dataset[2])
                         labels_list.append(dataset[0][idx].to('cpu').numpy().astype(np.float32))
-                        for i, reg_head in enumerate(task_dict):
-                            logits_dict[reg_head].append(dataset[1][i][idx].astype(np.float32))
-                        # gretz_logits.append(dataset[1][[k for k, v in reg_order.items() if v == "gretz"][0]][
-                        # idx].astype(np.float32)) toledo_logits.append(dataset[1][[k for k, v in reg_order.items()
-                        # if v == "toledo"][0]][idx].astype(np.float32)) swanson_logits.append(dataset[1][[k for k,
-                        # v in reg_order.items() if v == "swanson"][0]][idx].astype(np.float32)) ukp_logits.append(
-                        # dataset[1][[k for k, v in reg_order.items() if v == "ukp"][0]][idx].astype(np.float32))
+                        for j, reg_head in enumerate(task_dict):
+                            logits_dict[reg_head].append(dataset[1][j][idx].astype(np.float32))
 
             labels_list = [x.tolist() for x in labels_list]
             if len(logits_dict["gretz"]) > 0:
@@ -653,10 +781,31 @@ class ArgStrTrainer(Trainer):
             complete_logits_list.append([dataset_list, labels_list, gretz_logits,
                                          toledo_logits, swanson_logits, ukp_logits])
 
-        data_df = pd.DataFrame(complete_logits_list,
-                               columns=["orig_ds", "labels", "gretz_logits", "toledo_logits",
-                                        "swanson_logits", "ukp_logits"])
-        path_name = "infer_logits_" + exp_name + ".csv"
-        data_df.to_csv(path_name)
+        self.infer_df = pd.DataFrame(complete_logits_list,
+                                     columns=["orig_ds", "labels", "gretz_logits", "toledo_logits",
+                                              "swanson_logits", "ukp_logits"])
 
-        return None
+        if save_logits:
+            path_name = "./infer_logits/infer_logits_" + exp_name + "_" + str(exp_seed) + ".csv"
+            self.infer_df.to_csv(path_name, index=False)
+
+        print("Calculating inference metrics")
+        if save_logits:
+            self.infer_df = pd.read_csv(path_name)
+
+        if aggregation_method == "all":
+            self._aggregate_inference_logits(agg_method="mean")
+            inference_metrics = self._cal_eval_metrics(agg_method="mean")
+            self._aggregate_inference_logits(agg_method="wt-var")
+            inference_metrics.update(self._cal_eval_metrics(agg_method="wt-var"))
+            self._aggregate_inference_logits(agg_method="var")
+            inference_metrics.update(self._cal_eval_metrics(agg_method="var"))
+
+        else:
+            self._aggregate_inference_logits(agg_method=aggregation_method)
+            inference_metrics = self._cal_eval_metrics(agg_method=aggregation_method)
+
+        # save metrics as txt
+        file_name = "./inference_results/infer_metrics_" + self.task_name + "_" + str(exp_seed) + ".json"
+        with open(file_name, "w") as f:
+            json.dump(inference_metrics, f, indent=4)
