@@ -6,6 +6,16 @@ Siddharth Bhargava </h5>
 
 <h2> Brief Description </h2>
 
+Through this study, I seek to explore and understand how argument strength
+estimation can be generalized using the work and data from a diverse range
+of sources. I define various experiments and scenarios that study the diversity
+aspect of the different domains and underlines the connection between gen-
+eralization and diversity, focusing the employment of multi-task learning as a
+method to share information between the different interpretations of argument
+strength.
+
+Read Thesis: https://www.overleaf.com/read/sppbzngpxzzn
+
 ---
 <h2> Setup and Environment </h2>
 
